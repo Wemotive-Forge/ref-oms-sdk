@@ -128,7 +128,7 @@ const getSalesReportTrend = async ({ limit, offset, dateRangeValues, interval })
       console.log("interbal------>",interval)
     switch (interval) {
       case 'daily':
-        dateFormat = 'Day';
+        dateFormat = 'D';
         break;
       case 'weekly':
         dateFormat = 'W'; // %W gives the week number
