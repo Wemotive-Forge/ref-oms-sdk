@@ -12,32 +12,32 @@ const createOrder = async (orderId, currency, value, bff, collectedBy, paymentTy
   }
 };
 
-const getAllOrders = async (orderId, currency, value, bff, collectedBy, paymentType, limit, offset, state, startTime, endTime) => {
+const getAllOrders = async (data) => {
   try {
     const whereCondition = {};
-    if (orderId) {
+    if (data.orderId) {
       whereCondition.orderId = { [Op.iLike]: `%${orderId}%` };
     }
-    if (currency) {
+    if (data.currency) {
       whereCondition.currency = { [Op.iLike]: `%${currency}%` };
     }
-    if (value) {
+    if (data.value) {
       whereCondition.value = { [Op.iLike]: `%${value}%` };
     }
-    if (bff) {
+    if (data.bff) {
       whereCondition.bff = { [Op.iLike]: `%${bff}%` };
     }
-    if (collectedBy) {
+    if (data.collectedBy) {
       whereCondition.collectedBy = { [Op.iLike]: `%${collectedBy}%` };
     }
-    if (paymentType) {
+    if (data.paymentType) {
       whereCondition.paymentType = { [Op.iLike]: `%${paymentType}%` };
     }
-    if (state) {
+    if (data.state) {
       whereCondition.state = { [Op.iLike]: `%${state}%` };
     }
     // Adding conditions for filtering by startTime and endTime
-    if (startTime && endTime) {
+    if (data.startTime && data.endTime) {
       // Convert epoch timestamps to JavaScript Date objects in milliseconds
       const startDate = parseInt(startTime);
       const endDate = parseInt(endTime);
@@ -54,8 +54,8 @@ const getAllOrders = async (orderId, currency, value, bff, collectedBy, paymentT
 
     const orders = await Order.findAndCountAll({
       where: whereCondition,
-      offset: offset,
-      limit: limit,
+      offset: data.offset,
+      limit: data.limit,
       order: [['createdAt', 'DESC']],
     });
     return orders;
@@ -132,6 +132,7 @@ const exportToExcel = async (filePath) => {
     await workbook.xlsx.writeFile(filePath);
     console.log(`Excel file saved to ${filePath}`);
   } catch (err) {
+    console.log(err)
     throw new Error(err);
   }
 };

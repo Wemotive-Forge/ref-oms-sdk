@@ -15,8 +15,7 @@ const createOrder = async (req, res) => {
 
 const getAllOrders = async (req, res) => {
   try {
-    const { orderId, value, bff, collectedBy, paymentType, state, currency, limit, offset, startTime, endTime } = req.query;
-    const orders = await orderService.getAllOrders(orderId, value, bff, collectedBy, paymentType,currency, state, limit, offset, startTime, endTime);
+    const orders = await orderService.getAllOrders(req.query);
     res.json(orders);
   } catch (err) {
     console.error('Error getting orders', err);
@@ -57,6 +56,7 @@ const exportToExcel = async (req, res) => {
       }
     });
   } catch (err) {
+    console.log(err)
     res.status(500).json({ message: err.message });
   }
 };
