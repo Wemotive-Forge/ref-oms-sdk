@@ -1,5 +1,5 @@
 // services/order.service.js
-import {Order, Seller} from '../../models';
+import {Order, Seller,sequelize} from '../../models';
 import { Op } from 'sequelize';
 import ExcelJS from 'exceljs';
 
@@ -82,19 +82,15 @@ const getOrderById = async (id) => {
 const getOrderStateCounts = async () => {
   try {
     // Count the total number of states
-    const stateCounts = await Order.count({
-      attributes: ['state'],
+    const stateCounts = await Order.findAll({
+      attributes: [
+        'state',
+        [sequelize.fn('COUNT', sequelize.col('state')), 'count']
+      ],
       group: ['state']
-    });
-    // Prepare response data
-    const totalCount = stateCounts.reduce((total, stateCount) => {
-      return {
-        ...total,
-        [stateCount.state]: stateCount.count
-      };
-    }, {});
+    })
 
-    return totalCount;
+    return stateCounts;
   } catch (error) {
     console.error('Error counting order states:', error);
     throw new Error('Error counting order states');

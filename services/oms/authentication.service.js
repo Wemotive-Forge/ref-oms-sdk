@@ -1,5 +1,5 @@
 import { JsonWebToken, Token } from '../../lib/authentication';
-import { Otp, Role, Sequelize,SettlementDetails, User, UserRole,Order,Seller} from '../../models';
+import { Otp, Role, Sequelize,sequelize,SettlementDetails, User, UserRole,Order,Seller} from '../../models';
 import BadRequestParameterError from '../../lib/errors/bad-request-parameter.error';
 import Mailer from '../../lib/mailer';
 import UnauthenticatedError from "../../lib/errors/unauthenticated.error";
@@ -82,7 +82,7 @@ class AuthenticationService {
     async verifyOTP(data) {
         const email = data.email || null
         const mobile = data.mobile || null
-        const otp = data.otp
+        const otp = data.password
         try {
             let query = {}
             if (mobile) {
@@ -122,9 +122,9 @@ class AuthenticationService {
     }
 
     async dumpData(data) {
+        const transaction = await sequelize.transaction();
         try {
             // Fetch orders from MongoDB
-
             for (let order of data) {
                 if (order.id) {
                     let newSeller;
@@ -132,12 +132,15 @@ class AuthenticationService {
 
                        //load seller first
                        let seller = await Seller.findOne({where:{bpp_id:order.bppId}})
+
+                        console.log("seller exists---->",seller)
                         if(!seller){
+                            console.log("seller not exists---->")
                             //create seller
                           seller= await new Seller({
                               bpp_id: order.bppId,
                               name: order.bppId
-                          }).save();
+                          }).save({transaction});
                         }
 
                         //set settlement details
@@ -156,7 +159,7 @@ class AuthenticationService {
                                 bankName:order.settlementDetails['@ondc/org/settlement_details'][0].bank_name,
                                 branchName:order.settlementDetails['@ondc/org/settlement_details'][0].branch_name,
                                 SellerId:seller.id
-                            }).save();
+                            }).save({transaction});
                         }
 
                        //find if order is there
@@ -170,7 +173,7 @@ class AuthenticationService {
                                 collectedBy:order.settlementDetails?.collected_by ?? 'NA',
                                 paymentType:order.settlementDetails?.type ?? 'NA',
                                 state:order.state ?? 'NA',
-                                SellerId:seller.id},{where:{orderId:order.id}})
+                                SellerId:seller.id},{where:{orderId:order.id}},{transaction})
                         }else{
                             //create
                             //TODO: @ondc/org/buyer_app_finder_fee_type
@@ -183,9 +186,12 @@ class AuthenticationService {
                                 collectedBy:order.settlementDetails?.collected_by ?? 'NA',
                                 paymentType:order.settlementDetails?.type ?? 'NA',
                                 state:order.state ?? 'NA',
-                                SellerId:seller.id
-                            }).save()
+                                SellerId:seller.id,
+                                createdAt:order.createdAt,
+                                updatedAt:order.updatedAt
+                            }).save({transaction})
 
+                          await  transaction.commit()
                         }
 
 
@@ -198,6 +204,7 @@ class AuthenticationService {
             return true
         } catch (error) {
             console.error('Error fetching orders:', error);
+            await transaction.rollback();
             throw error
         }
 

@@ -1,7 +1,7 @@
 // services/seller.service.js
 import { Op } from 'sequelize';
 import ExcelJS from 'exceljs';
-import { Seller, Order } from '../../models';
+import {Seller, Order, sequelize} from '../../models';
 
 // const { Seller, Order } = models;
 
@@ -72,57 +72,29 @@ const getSellerById = async (id) => {
 
 const getSalesReport = async ({ limit, offset, startDate, endDate }) => {
   try {
-    const sellers = await Seller.findAll({
-      include: [{
-        model: Order,
-        attributes: ['value', 'state'],
-        as: 'orders',
-        where: {
-          createdAt: {
-            [Op.between]: [startDate, endDate]
-          }
-        }
-      }],
-      attributes: ['id', 'name'],
-      limit,
-      offset
+    const sellers = await Seller.findAndCountAll({
+      offset: offset,
+      limit: limit,
+      order: [['createdAt', 'DESC']],
+      raw:true
     });
 
-    // Mapping between order states from the API and expected states in the function
-    const stateMapping = {
-      "In-progress": "inprogress",
-      "Cancelled": "cancelled",
-      "Completed": "confirmed",
-      "Accepted": "created"
-    };
+    let salesReport = []
+    for(let seller of sellers.rows){
+      const stateCounts = await Order.findAll({
+        attributes: [
+          'state',
+          [sequelize.fn('COUNT', sequelize.col('state')), 'count']
+        ],
+        group: ['state']
+      })
+      seller.stats = stateCounts
+      salesReport.push(seller)
+    }
+    sellers.rows = salesReport;
 
-    const salesReport = sellers.map(seller => {
-      // Initialize order counts
-      const orderCounts = {
-        confirmed: 0,
-        cancelled: 0,
-        created: 0,
-        inprogress: 0
-      };
-
-      // Count orders based on their statuses
-      seller.orders.forEach(order => {
-        // Map the order state to the expected state name
-        const mappedState = stateMapping[order.state];
-        if (mappedState in orderCounts) {
-          orderCounts[mappedState]++;
-        }
-      });
-
-      return {
-        sellerId: seller.id,
-        sellerName: seller.name,
-        totalSales: seller.orders.reduce((total, order) => total + order.value, 0),
-        orderCounts: orderCounts
-      };
-    });
-
-    return salesReport;
+    console.log(sellers)
+    return sellers;
   } catch (err) {
     console.error('Error fetching sales report:', err);
     throw new Error('Error fetching sales report');
