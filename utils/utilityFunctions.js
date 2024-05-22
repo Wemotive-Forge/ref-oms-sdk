@@ -1,10 +1,44 @@
 const {required} = require("nconf");
+const moment = require('moment');
 
 exports.asyncForEach = async (array, callback) => {
     for (let index = 0; index < array.length; index++) {
         await callback(array[index], index, array);
     }
 }
+
+exports.getDateRange = async (rangeType) => {
+    let startDate;
+    let endDate = moment().endOf('day').toDate(); // Default end date to today
+
+    switch (rangeType) {
+        case 'thisWeek':
+            startDate = moment().startOf('week').toDate();
+            endDate = moment().endOf('week').toDate();
+            break;
+        case 'thisMonth':
+            startDate = moment().startOf('month').toDate();
+            endDate = moment().endOf('month').toDate();
+            break;
+        case 'thisYear':
+            startDate = moment().startOf('year').toDate();
+            endDate = moment().endOf('year').toDate();
+            break;
+        case 'lastWeek':
+            startDate = moment().subtract(1, 'weeks').startOf('week').toDate();
+            endDate = moment().subtract(1, 'weeks').endOf('week').toDate();
+            break;
+        case 'lastMonth':
+            startDate = moment().subtract(1, 'months').startOf('month').toDate();
+            endDate = moment().subtract(1, 'months').endOf('month').toDate();
+            break;
+        default:
+            throw new Error('Invalid date range type');
+    }
+
+    return { startDate, endDate };
+};
+
 
 /**
  * Function to sort object keys by their values

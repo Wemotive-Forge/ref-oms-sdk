@@ -1,5 +1,6 @@
 import {sellerService} from "../services/oms";
 import fs from 'fs';
+import {getDateRange} from "../utils/utilityFunctions";
 
 const createSeller = async (req, res) => {
   const { gst, pan, bppId, name } = req.body;
@@ -35,8 +36,29 @@ const getSellerById = async(req, res)=> {
 
 const getSalesReport = async (req, res) => {
   try {
-      const { limit, offset, startDate, endDate } = req.query;
-      const salesReport = await sellerService.getSalesReport({ limit, offset, startDate, endDate });
+      const { limit, offset, dateRange } = req.query;
+
+      let dateRangeValues
+      if(dateRange){
+          dateRangeValues = await getDateRange(dateRange);
+      }
+      const salesReport = await sellerService.getSalesReport({ limit, offset,dateRangeValues });
+      res.json(salesReport);
+  } catch (error) {
+      console.error('Error fetching sales report:', error);
+      res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+const getSalesReportTrend = async (req, res) => {
+  try {
+      const { limit, offset, dateRange, interval } = req.query;
+
+      let dateRangeValues
+      if(dateRange){
+          dateRangeValues = await getDateRange(dateRange);
+      }
+      const salesReport = await sellerService.getSalesReportTrend({ limit, offset,dateRangeValues,interval });
       res.json(salesReport);
   } catch (error) {
       console.error('Error fetching sales report:', error);
@@ -46,8 +68,13 @@ const getSalesReport = async (req, res) => {
 
 const getAccountPayableReport = async (req, res) => {
   try {
-      const { limit, offset, startDate, endDate } = req.query;
-      const salesReport = await sellerService.getAccountPayableReport({ limit, offset, startDate, endDate });
+      const { limit, offset, dateRange } = req.query;
+
+      let dateRangeValues
+      if(dateRange){
+          dateRangeValues = await getDateRange(dateRange);
+      }
+      const salesReport = await sellerService.getAccountPayableReport({ limit, offset, dateRangeValues });
       res.json(salesReport);
   } catch (error) {
       console.error('Error fetching sales report:', error);
@@ -57,8 +84,13 @@ const getAccountPayableReport = async (req, res) => {
 
 const getAccountCollectedReport = async (req, res) => {
   try {
-      const { limit, offset, startDate, endDate } = req.query;
-      const salesReport = await sellerService.getAccountCollectedReport({ limit, offset, startDate, endDate });
+      const { limit, offset, dateRange } = req.query;
+
+      let dateRangeValues
+      if(dateRange){
+          dateRangeValues = await getDateRange(dateRange);
+      }
+      const salesReport = await sellerService.getAccountCollectedReport({ limit, offset, dateRangeValues });
       res.json(salesReport);
   } catch (error) {
       console.error('Error fetching sales report:', error);
@@ -90,5 +122,6 @@ export default {
   getSellerById,
   getSalesReport,
   getAccountPayableReport,
-  getAccountCollectedReport
+  getAccountCollectedReport,
+  getSalesReportTrend
 };

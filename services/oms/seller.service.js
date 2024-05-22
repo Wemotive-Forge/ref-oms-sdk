@@ -70,7 +70,7 @@ const getSellerById = async (id) => {
   }
 };
 
-const getSalesReport = async ({ limit, offset, startDate, endDate }) => {
+const getSalesReport = async ({ limit, offset, dateRangeValues }) => {
   try {
     const sellers = await Seller.findAndCountAll({
       offset: offset,
@@ -81,7 +81,17 @@ const getSalesReport = async ({ limit, offset, startDate, endDate }) => {
 
     let salesReport = []
     for(let seller of sellers.rows){
+      let query = {}
+      if(dateRangeValues){
+        query={
+          createdAt: {
+            [Op.between]: [dateRangeValues.startDate, dateRangeValues.endDate]
+          }
+      }
+      }
+
       const stateCounts = await Order.findAll({
+        where:query,
         attributes: [
           'state',
           [sequelize.fn('COUNT', sequelize.col('state')), 'count']
@@ -101,8 +111,80 @@ const getSalesReport = async ({ limit, offset, startDate, endDate }) => {
   }
 };
 
-const getAccountPayableReport = async ({ limit, offset, startDate, endDate }) => {
+const getSalesReportTrend = async ({ limit, offset, dateRangeValues, interval }) => {
   try {
+
+      let query = {}
+      if(dateRangeValues){
+        query={
+          createdAt: {
+            [Op.between]: [dateRangeValues.startDate, dateRangeValues.endDate]
+          }
+      }
+      }
+
+    let dateFormat;
+
+      console.log("interbal------>",interval)
+    switch (interval) {
+      case 'daily':
+        dateFormat = 'Day';
+        break;
+      case 'weekly':
+        dateFormat = 'W'; // %W gives the week number
+        break;
+      case 'monthly':
+        dateFormat = 'Month';
+        break;
+      default:
+        dateFormat = 'Month';
+        break;
+    }
+
+    const ordersObject = await Order.findAll({
+      attributes: [
+        'state',
+        // [sequelize.fn('MONTH', sequelize.col('createdAt')), 'date'],
+        [sequelize.fn('to_char', sequelize.col('createdAt'), dateFormat), 'date'],
+        [sequelize.fn('COUNT', sequelize.col('state')), 'count']
+      ],
+      where: {
+        createdAt: {
+          [Op.between]: [dateRangeValues.startDate, dateRangeValues.endDate]
+        }
+      },
+      group: [sequelize.literal(`to_char("createdAt", '${dateFormat}')`),'state'],
+      // order: [[sequelize.literal('date'), 'ASC']]//
+    });
+
+    const orders = ordersObject.map(order => order.get({ plain: true }));
+
+    const dates = Array.from(new Set(orders.map(item => item.date))).sort();
+
+    const states = Array.from(new Set(orders.map(item => item.state)));
+
+// Map data for each state and date
+    const seriesData = states.map(state => {
+      return {
+        name: state,
+        type: 'line',
+        stack: 'total',
+        data: dates.map(date => {
+          const item = orders.find(d => d.state === state && d.date === date);
+          return item ? parseInt(item.count, 10) : 0;
+        })
+      };
+    });
+    return {yAxis:seriesData,xAxis:dates};
+  } catch (err) {
+    console.error('Error fetching sales report:', err);
+    throw new Error('Error fetching sales report');
+  }
+};
+
+const getAccountPayableReport = async ({ limit, offset, dateRangeValues }) => {
+  try {
+
     const sellers = await Seller.findAndCountAll({
       offset: offset,
       limit: limit,
@@ -112,11 +194,21 @@ const getAccountPayableReport = async ({ limit, offset, startDate, endDate }) =>
 
     let salesReport = []
     for(let seller of sellers.rows){
-      const stateCounts = await Order.findAll({
-        where:{
+      let query = {
+        SellerId:seller.id,
+        state:{[Op.in]:['Created','Accepted','In-progress','Completed']},
+      }
+      if(dateRangeValues){
+        query={
+          createdAt: {
+            [Op.between]: [dateRangeValues.startDate, dateRangeValues.endDate]
+          },
           SellerId:seller.id,
-          state:{[Op.in]:['Created','Accepted','In-progress','Completed']}
-        },
+          state:{[Op.in]:['Created','Accepted','In-progress','Completed']},
+        }
+      }
+      const stateCounts = await Order.findAll({
+        where:query,
         attributes: [
           [sequelize.fn('SUM', sequelize.col('value')), 'sum'],
           [sequelize.fn('COUNT', sequelize.col('id')), 'count']
@@ -127,7 +219,6 @@ const getAccountPayableReport = async ({ limit, offset, startDate, endDate }) =>
     }
     sellers.rows = salesReport;
 
-    console.log(sellers)
     return sellers;
   } catch (err) {
     console.error('Error fetching sales report:', err);
@@ -135,8 +226,9 @@ const getAccountPayableReport = async ({ limit, offset, startDate, endDate }) =>
   }
 };
 
-const getAccountCollectedReport = async ({ limit, offset, startDate, endDate }) => {
+const getAccountCollectedReport = async ({ limit, offset, dateRangeValues }) => {
   try {
+
     const sellers = await Seller.findAndCountAll({
       offset: offset,
       limit: limit,
@@ -146,11 +238,21 @@ const getAccountCollectedReport = async ({ limit, offset, startDate, endDate }) 
 
     let salesReport = []
     for(let seller of sellers.rows){
-      const stateCounts = await Order.findAll({
-        where:{
+      let query = {
+        SellerId:seller.id,
+        state:{[Op.in]:['Created','Accepted','In-progress','Completed']},
+      }
+      if(dateRangeValues){
+        query={
+          createdAt: {
+            [Op.between]: [dateRangeValues.startDate, dateRangeValues.endDate]
+          },
           SellerId:seller.id,
-          state:{[Op.in]:['Created','Accepted','In-progress','Completed']}
-        },
+          state:{[Op.in]:['Created','Accepted','In-progress','Completed']},
+        }
+      }
+      const stateCounts = await Order.findAll({
+        where:query,
         attributes: [
           [sequelize.fn('SUM', sequelize.col('value')), 'sum'],
           [sequelize.fn('COUNT', sequelize.col('id')), 'count']
@@ -161,7 +263,6 @@ const getAccountCollectedReport = async ({ limit, offset, startDate, endDate }) 
     }
     sellers.rows = salesReport;
 
-    console.log(sellers)
     return sellers;
   } catch (err) {
     console.error('Error fetching sales report:', err);
@@ -209,5 +310,6 @@ export default {
   getSellerById,
   getSalesReport,
   getAccountPayableReport,
-  getAccountCollectedReport
+  getAccountCollectedReport,
+  getSalesReportTrend
 };
