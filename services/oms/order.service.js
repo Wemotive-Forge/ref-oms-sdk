@@ -1,5 +1,5 @@
 // services/order.service.js
-import { Order} from '../../models';
+import {Order, Seller} from '../../models';
 import { Op } from 'sequelize';
 import ExcelJS from 'exceljs';
 
@@ -57,6 +57,7 @@ const getAllOrders = async (data) => {
       offset: data.offset,
       limit: data.limit,
       order: [['createdAt', 'DESC']],
+      include:[{model:Seller}]
     });
     return orders;
   } catch (err) {
@@ -70,6 +71,7 @@ const getOrderById = async (id) => {
       where: {
         id: id
       },
+      include:[{model:Seller}]
     });
     return order;
   } catch (err) {

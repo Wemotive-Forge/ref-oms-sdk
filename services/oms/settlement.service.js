@@ -1,5 +1,5 @@
 // services/settlementDetailsService.js
-import { SettlementDetails} from '../../models';
+import { SettlementDetails,Seller} from '../../models';
 import { Op } from 'sequelize';
 import ExcelJS from 'exceljs'
 
@@ -48,6 +48,7 @@ const getAllSettlementDetails = async (limit, offset, bankName, branchName, sett
             offset: offset,
             limit: limit,
             order: [['createdAt', 'DESC']],
+            include:[{model:Seller}]
         });
         return settlementDetails;
     } catch (err) {
@@ -60,7 +61,8 @@ const getSettlementById = async (id) => {
       const settlement = await SettlementDetails.findOne({
         where: {
           id: id
-        }
+        },
+          include:[{model:Seller}]
       });
       return settlement;
     } catch (err) {
