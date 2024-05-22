@@ -33,7 +33,7 @@ const getOrderById = async(req, res)=> {
   }
 }
 
-const getOrderStateCountsController = async (req, res) => {
+const getOrderStateCounts = async (req, res) => {
   try {
       const totalCount = await orderService.getOrderStateCounts();
       res.json(totalCount);
@@ -66,5 +66,5 @@ export default {
   getAllOrders,
   exportToExcel,
   getOrderById,
-  getOrderStateCountsController
+  getOrderStateCounts
 };

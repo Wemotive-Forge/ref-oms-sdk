@@ -7,6 +7,6 @@ const router = express.Router();
 router.post('/return', returnController.createReturn);
 router.get('/return', returnController.getAllReturns);
 router.get('/return/:id', returnController.getReturnById);
-router.get('/return/exportExcel', returnController.exportToExcel);
+router.get('/return/download/xlsx', returnController.exportToExcel);
 
 export default router;

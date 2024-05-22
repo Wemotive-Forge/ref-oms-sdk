@@ -101,6 +101,74 @@ const getSalesReport = async ({ limit, offset, startDate, endDate }) => {
   }
 };
 
+const getAccountPayableReport = async ({ limit, offset, startDate, endDate }) => {
+  try {
+    const sellers = await Seller.findAndCountAll({
+      offset: offset,
+      limit: limit,
+      order: [['createdAt', 'DESC']],
+      raw:true
+    });
+
+    let salesReport = []
+    for(let seller of sellers.rows){
+      const stateCounts = await Order.findAll({
+        where:{
+          SellerId:seller.id,
+          state:{[Op.in]:['Created','Accepted','In-progress','Completed']}
+        },
+        attributes: [
+          [sequelize.fn('SUM', sequelize.col('value')), 'sum'],
+          [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+        ],
+      })
+      seller.stats = stateCounts
+      salesReport.push(seller)
+    }
+    sellers.rows = salesReport;
+
+    console.log(sellers)
+    return sellers;
+  } catch (err) {
+    console.error('Error fetching sales report:', err);
+    throw new Error('Error fetching sales report');
+  }
+};
+
+const getAccountCollectedReport = async ({ limit, offset, startDate, endDate }) => {
+  try {
+    const sellers = await Seller.findAndCountAll({
+      offset: offset,
+      limit: limit,
+      order: [['createdAt', 'DESC']],
+      raw:true
+    });
+
+    let salesReport = []
+    for(let seller of sellers.rows){
+      const stateCounts = await Order.findAll({
+        where:{
+          SellerId:seller.id,
+          state:{[Op.in]:['Created','Accepted','In-progress','Completed']}
+        },
+        attributes: [
+          [sequelize.fn('SUM', sequelize.col('value')), 'sum'],
+          [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+        ],
+      })
+      seller.stats = stateCounts
+      salesReport.push(seller)
+    }
+    sellers.rows = salesReport;
+
+    console.log(sellers)
+    return sellers;
+  } catch (err) {
+    console.error('Error fetching sales report:', err);
+    throw new Error('Error fetching sales report');
+  }
+};
+
 const exportToExcel = async (filePath) => {
   try {
     const sellers = await Seller.findAll();
@@ -139,5 +207,7 @@ export default {
   getAllSellers,
   exportToExcel,
   getSellerById,
-  getSalesReport
+  getSalesReport,
+  getAccountPayableReport,
+  getAccountCollectedReport
 };

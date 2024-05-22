@@ -44,6 +44,28 @@ const getSalesReport = async (req, res) => {
   }
 };
 
+const getAccountPayableReport = async (req, res) => {
+  try {
+      const { limit, offset, startDate, endDate } = req.query;
+      const salesReport = await sellerService.getAccountPayableReport({ limit, offset, startDate, endDate });
+      res.json(salesReport);
+  } catch (error) {
+      console.error('Error fetching sales report:', error);
+      res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+const getAccountCollectedReport = async (req, res) => {
+  try {
+      const { limit, offset, startDate, endDate } = req.query;
+      const salesReport = await sellerService.getAccountCollectedReport({ limit, offset, startDate, endDate });
+      res.json(salesReport);
+  } catch (error) {
+      console.error('Error fetching sales report:', error);
+      res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 const exportToExcel = async (req, res) => {
   const filePath = 'sellers.xlsx';
   try {
@@ -66,5 +88,7 @@ export default {
   getAllSellers,
   exportToExcel,
   getSellerById,
-  getSalesReport
+  getSalesReport,
+  getAccountPayableReport,
+  getAccountCollectedReport
 };

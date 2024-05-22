@@ -6,6 +6,6 @@ import {settlementController} from "../controllers";
 router.post('/settlement', settlementController.createSettlementDetails);
 router.get('/settlement', settlementController.getAllSettlementDetails);
 router.get('/settlement/:id', settlementController.getSettlementById);
-router.get('/settlement/exportExcel', settlementController.exportToExcel);
+router.get('/settlement/download/xlsx', settlementController.exportToExcel);
 
 export default router;
