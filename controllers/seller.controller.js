@@ -1,127 +1,121 @@
-import {sellerService} from "../services/oms";
+import { sellerService } from "../services/oms";
 import fs from 'fs';
-import {getDateRange} from "../utils/utilityFunctions";
+import { getDateRange } from "../utils/utilityFunctions";
 
-const createSeller = async (req, res) => {
-  const { body } = req;
-  try {
-    const newSeller = await sellerService.createSeller(body);
-    res.json(newSeller);
-  } catch (err) {
-    console.error('Error creating seller', err);
-    res.status(500).json({ error: 'Internal Server Error' });
+class SellerController {
+
+  async createSeller(req, res) {
+    const { body } = req;
+    try {
+      const newSeller = await sellerService.createSeller(body);
+      res.json(newSeller);
+    } catch (err) {
+      console.error('Error creating seller', err);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  };
+
+  async getAllSellers(req, res) {
+    try {
+      const sellers = await sellerService.getAllSellers(req.query);
+      res.json(sellers);
+    } catch (err) {
+      console.error('Error getting sellers', err);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  };
+
+  async getSellerById(req, res) {
+    try {
+      const { id } = req.params;
+      const seller = await sellerService.getSellerById(id);
+      res.json(seller);
+    } catch (err) {
+      res.status(500).json({ error: 'Internal Server Error' })
+    }
   }
-};
 
-const getAllSellers = async (req, res) => {
-  try {
-    const sellers = await sellerService.getAllSellers(req.query);
-    res.json(sellers);
-  } catch (err) {
-    console.error('Error getting sellers', err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-};
-
-const getSellerById = async(req, res)=> {
-  try {
-    const { id } = req.params;
-    const seller = await sellerService.getSellerById(id);
-    res.json(seller);
-  } catch(err){
-    res.status(500).json({ error: 'Internal Server Error'})
-  }
-}
-
-const getSalesReport = async (req, res) => {
-  try {
+  async getSalesReport(req, res) {
+    try {
       const { limit, offset, dateRange } = req.query;
 
       let dateRangeValues
-      if(dateRange){
-          dateRangeValues = await getDateRange(dateRange);
+      if (dateRange) {
+        dateRangeValues = await getDateRange(dateRange);
       }
-      const salesReport = await sellerService.getSalesReport({ limit, offset,dateRangeValues });
+      const salesReport = await sellerService.getSalesReport({ limit, offset, dateRangeValues });
       res.json(salesReport);
-  } catch (error) {
+    } catch (error) {
       console.error('Error fetching sales report:', error);
       res.status(500).json({ error: 'Internal server error' });
-  }
-};
+    }
+  };
 
-const getSalesReportTrend = async (req, res) => {
-  try {
+  async getSalesReportTrend(req, res) {
+    try {
       const { limit, offset, dateRange, interval } = req.query;
 
       let dateRangeValues
-      if(dateRange){
-          dateRangeValues = await getDateRange(dateRange);
+      if (dateRange) {
+        dateRangeValues = await getDateRange(dateRange);
       }
-      const salesReport = await sellerService.getSalesReportTrend({ limit, offset,dateRangeValues,interval });
+      const salesReport = await sellerService.getSalesReportTrend({ limit, offset, dateRangeValues, interval });
       res.json(salesReport);
-  } catch (error) {
+    } catch (error) {
       console.error('Error fetching sales report:', error);
       res.status(500).json({ error: 'Internal server error' });
-  }
-};
+    }
+  };
 
-const getAccountPayableReport = async (req, res) => {
-  try {
+  async getAccountPayableReport(req, res) {
+    try {
       const { limit, offset, dateRange } = req.query;
 
       let dateRangeValues
-      if(dateRange){
-          dateRangeValues = await getDateRange(dateRange);
+      if (dateRange) {
+        dateRangeValues = await getDateRange(dateRange);
       }
       const salesReport = await sellerService.getAccountPayableReport({ limit, offset, dateRangeValues });
       res.json(salesReport);
-  } catch (error) {
+    } catch (error) {
       console.error('Error fetching sales report:', error);
       res.status(500).json({ error: 'Internal server error' });
-  }
-};
+    }
+  };
 
-const getAccountCollectedReport = async (req, res) => {
-  try {
+  async getAccountCollectedReport(req, res) {
+    try {
       const { limit, offset, dateRange } = req.query;
 
       let dateRangeValues
-      if(dateRange){
-          dateRangeValues = await getDateRange(dateRange);
+      if (dateRange) {
+        dateRangeValues = await getDateRange(dateRange);
       }
       const salesReport = await sellerService.getAccountCollectedReport({ limit, offset, dateRangeValues });
       res.json(salesReport);
-  } catch (error) {
+    } catch (error) {
       console.error('Error fetching sales report:', error);
       res.status(500).json({ error: 'Internal server error' });
-  }
-};
+    }
+  };
 
-const exportToExcel = async (req, res) => {
-  const { startTime, endTime } = req.query
-  const filePath = 'sellers.xlsx';
-  try {
-    await sellerService.exportToExcel(filePath, startTime, endTime);
-    res.download(filePath, (err) => {
-      if (err) {
-        throw new Error('Error downloading file');
-      } else {
-        // Delete the file after download
-        fs.unlinkSync(filePath);
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+  async exportToExcel(req, res) {
+    const { startTime, endTime } = req.query
+    const filePath = 'sellers.xlsx';
+    try {
+      await sellerService.exportToExcel(filePath, startTime, endTime);
+      res.download(filePath, (err) => {
+        if (err) {
+          throw new Error('Error downloading file');
+        } else {
+          // Delete the file after download
+          fs.unlinkSync(filePath);
+        }
+      });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  };
+}
 
-export default {
-  createSeller,
-  getAllSellers,
-  exportToExcel,
-  getSellerById,
-  getSalesReport,
-  getAccountPayableReport,
-  getAccountCollectedReport,
-  getSalesReportTrend
-};
+module.exports = new SellerController();
