@@ -3,9 +3,9 @@ import fs from 'fs';
 import {getDateRange} from "../utils/utilityFunctions";
 
 const createSeller = async (req, res) => {
-  const { gst, pan, bppId, name } = req.body;
+  const { body } = req;
   try {
-    const newSeller = await sellerService.createSeller(gst, pan, bppId, name);
+    const newSeller = await sellerService.createSeller(body);
     res.json(newSeller);
   } catch (err) {
     console.error('Error creating seller', err);

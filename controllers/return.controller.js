@@ -3,9 +3,9 @@ import {returnService} from "../services/oms";
 import fs from 'fs';
 
 const createReturn = async (req, res) => {
-  const { returnId, amount, reason, OrderId } = req.body;
+  const { body } = req;
   try {
-    const newReturn = await returnService.createReturn(returnId, amount, reason, OrderId);
+    const newReturn = await returnService.createReturn(body);
     res.json(newReturn);
   } catch (err) {
     console.error('Error creating return', err);

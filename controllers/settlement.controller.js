@@ -3,9 +3,9 @@ import {settlementService} from "../services/oms";
 import fs from 'fs';
 
 const createSettlementDetails = async (req, res) => {
-    const { settlementType, settlement_bank_account_no, UPI,beneficiary_name, bankName, branchName, OrderId, SellerId } = req.body;
+    const { body } = req;
     try {
-        const newSettlementDetails = await settlementService.createSettlementDetails(settlementType, settlement_bank_account_no, UPI,beneficiary_name, bankName, branchName, OrderId, SellerId);
+        const newSettlementDetails = await settlementService.createSettlementDetails(body);
         res.json(newSettlementDetails);
     } catch (err) {
         console.error('Error creating settlement details', err);

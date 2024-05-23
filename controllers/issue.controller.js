@@ -3,9 +3,9 @@ import {issueService} from "../services/oms";
 import fs from 'fs';
 
 const createIssue = async (req, res) => {
-  const { category, issueId, subCategory, issueStatus, OrderId } = req.body;
+  const { body, user } = req;
   try {
-    const newIssue = await issueService.createIssue(category, issueId, subCategory, issueStatus, OrderId);
+    const newIssue = await issueService.createIssue(body);
     res.json(newIssue);
   } catch (err) {
     console.error('Error creating issue', err);

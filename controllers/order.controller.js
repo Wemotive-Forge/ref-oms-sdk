@@ -3,9 +3,9 @@ import {orderService} from "../services/oms";
 import fs from 'fs';
 
 const createOrder = async (req, res) => {
-  const { orderId, currency, value, bff, collectedBy, paymentType, state, sellerId } = req.body;
+  const { body } = req;
   try {
-    const newOrder = await orderService.createOrder(orderId, currency, value, bff, collectedBy, paymentType, state, sellerId);
+    const newOrder = await orderService.createOrder(body);
     res.json(newOrder);
   } catch (err) {
     console.error('Error creating order', err);
