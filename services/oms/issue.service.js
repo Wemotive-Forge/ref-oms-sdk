@@ -1,16 +1,20 @@
 // services/issue.service.js
-import { Issue} from '../../models';
+import { Issue, sequelize} from '../../models';
 import { Op } from 'sequelize';
 import ExcelJS from 'exceljs';
 import moment from 'moment';
 import MESSAGES from '../../utils/messages';
 import {BadRequestParameterError} from '../../lib/errors/errors';
 
-const createIssue = async (category, issueId, subCategory, issueStatus, OrderId) => {
+const createIssue = async (data) => {
+  let transaction;
   try {
-    const newIssue = await Issue.create({ category, issueId, subCategory, issueStatus, OrderId });
+    transaction = await sequelize.transaction();
+    const newIssue = await Issue.create(data, { transaction });
+    await transaction.commit();
     return newIssue;
   } catch (err) {
+    if (transaction) await transaction.rollback();
     throw new Error(err);
   }
 };
@@ -78,7 +82,9 @@ const getIssueById = async (id) => {
 };
 
 const exportToExcel = async (filePath, startTime, endTime) => {
+  let transaction;
   try {
+    transaction = await sequelize.transaction();
     const whereCondition = {};
     if (startTime && endTime) {
       const startDate = moment(startTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
@@ -98,7 +104,8 @@ const exportToExcel = async (filePath, startTime, endTime) => {
     }
 
     const issues = await Issue.findAll({
-      where: whereCondition
+      where: whereCondition,
+      transaction
     });
 
     const workbook = new ExcelJS.Workbook();
@@ -126,8 +133,10 @@ const exportToExcel = async (filePath, startTime, endTime) => {
 
     // Save the workbook
     await workbook.xlsx.writeFile(filePath);
+    await transaction.commit();
     console.log(`Excel file saved to ${filePath}`);
   } catch (err) {
+    if (transaction) await transaction.rollback();
     throw new Error('Error exporting to Excel');
   }
 };

@@ -6,11 +6,15 @@ import moment from 'moment';
 import MESSAGES from '../../utils/messages';
 import {BadRequestParameterError} from '../../lib/errors/errors';
 
-const createOrder = async (orderId, currency, value, bff, collectedBy, paymentType, state, sellerId) => {
+const createOrder = async (data) => {
+  let transaction;
   try {
-    const newOrder = await Order.create({ orderId, currency, value, bff, collectedBy, paymentType, state, sellerId });
+    transaction = await sequelize.transaction();
+    const newOrder = await Order.create(data, { transaction });
+    await transaction.commit();
     return newOrder;
   } catch (err) {
+    if (transaction) await transaction.rollback();
     throw new Error(err);
   }
 };
@@ -104,7 +108,9 @@ const getOrderStateCounts = async () => {
 
 
 const exportToExcel = async (filePath, startTime, endTime) => {
+  let transaction;
   try {
+    transaction = await sequelize.transaction();
     const whereCondition = {};
     if (startTime && endTime) {
       const startDate = moment(startTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
@@ -124,7 +130,8 @@ const exportToExcel = async (filePath, startTime, endTime) => {
     }
 
     const orders = await Order.findAll({
-      where: whereCondition
+      where: whereCondition,
+      transaction
     });
 
     const workbook = new ExcelJS.Workbook();
@@ -154,9 +161,11 @@ const exportToExcel = async (filePath, startTime, endTime) => {
 
     // Save the workbook
     await workbook.xlsx.writeFile(filePath);
+    await transaction.commit();
     console.log(`Excel file saved to ${filePath}`);
   } catch (err) {
     console.log(err)
+    if (transaction) await transaction.rollback();
     throw new Error(err);
   }
 };

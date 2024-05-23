@@ -6,11 +6,15 @@ import moment from 'moment';
 import MESSAGES from '../../utils/messages';
 import {BadRequestParameterError} from '../../lib/errors/errors';
 
-const createReturn = async (returnId, amount, reason, OrderId) => {
+const createReturn = async (data) => {
+  let transaction;
   try {
-    const newReturn = await Return.create({ returnId, amount, reason, OrderId });
+    transaction = await sequelize.transaction();
+    const newReturn = await Return.create(data, { transaction });
+    await transaction.commit();
     return newReturn;
   } catch (err) {
+    if (transaction) await transaction.rollback();
     throw new Error(err);
   }
 };
@@ -73,7 +77,9 @@ const getReturnById = async (id) => {
 };
 
 const exportToExcel = async (filePath, startTime, endTime) => {
+  let transaction;
   try {
+    transaction = await sequelize.transaction();
     const whereCondition = {};
     if (startTime && endTime) {
       // Parse and format dates using moment-timezone
@@ -93,7 +99,8 @@ const exportToExcel = async (filePath, startTime, endTime) => {
       }
     }
     const returns = await Return.findAll({
-      where: whereCondition
+      where: whereCondition,
+      transaction
     });
 
     const workbook = new ExcelJS.Workbook();
@@ -119,8 +126,10 @@ const exportToExcel = async (filePath, startTime, endTime) => {
 
     // Save the workbook
     await workbook.xlsx.writeFile(filePath);
+    await transaction.commit();
     console.log(`Excel file saved to ${filePath}`);
   } catch (err) {
+    if (transaction) await transaction.rollback();
     throw new Error('Error exporting to Excel');
   }
 };

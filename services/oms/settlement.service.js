@@ -1,18 +1,22 @@
 // services/settlementDetailsService.js
-import { SettlementDetails,Seller} from '../../models';
+import { SettlementDetails,Seller, sequelize} from '../../models';
 import { Op } from 'sequelize';
 import ExcelJS from 'exceljs'
 import moment from 'moment';
 import MESSAGES from '../../utils/messages';
 import {BadRequestParameterError} from '../../lib/errors/errors';
 
-const createSettlementDetails = async (settlementType, settlement_bank_account_no, UPI,beneficiary_name, bankName, branchName, OrderId, SellerId) => {
-    try {
-        const newSettlementDetails = await SettlementDetails.create({ settlementType, settlement_bank_account_no, UPI,beneficiary_name, bankName, branchName, OrderId, SellerId });
-        return newSettlementDetails;
-    } catch (err) {
-        throw new Error(err);
-    }
+const createSettlementDetails = async (data) => {
+  let transaction;
+  try {
+      transaction = await sequelize.transaction();
+      const newSettlementDetails = await SettlementDetails.create(data, { transaction });
+      await transaction.commit();
+      return newSettlementDetails;
+  } catch (err) {
+      if (transaction) await transaction.rollback();
+      throw new Error(err);
+  }
 };
 
 const getAllSettlementDetails = async (data) => {
@@ -81,7 +85,9 @@ const getSettlementById = async (id) => {
 };
 
 const exportToExcel = async (filePath, startTime, endTime) => {
+    let transaction;
     try {
+        transaction = await sequelize.transaction();
         const whereCondition = {};
         if (startTime && endTime) {
           // Parse and format dates using moment-timezone
@@ -101,7 +107,8 @@ const exportToExcel = async (filePath, startTime, endTime) => {
           }
         }
         const settlementDetails = await SettlementDetails.findAll({
-            where: whereCondition
+            where: whereCondition,
+            transaction
         });
 
         const workbook = new ExcelJS.Workbook();
@@ -127,8 +134,10 @@ const exportToExcel = async (filePath, startTime, endTime) => {
 
         // Save the workbook
         await workbook.xlsx.writeFile(filePath);
+        await transaction.commit();
         console.log(`Excel file saved to ${filePath}`);
     } catch (err) {
+        if(transaction) await transaction.rollback();
         throw new Error('Error exporting to Excel');
     }
 };
