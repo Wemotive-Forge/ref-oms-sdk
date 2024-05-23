@@ -2,6 +2,9 @@
 import {Order, Seller,sequelize} from '../../models';
 import { Op } from 'sequelize';
 import ExcelJS from 'exceljs';
+import moment from 'moment';
+import MESSAGES from '../../utils/messages';
+import {BadRequestParameterError} from '../../lib/errors/errors';
 
 const createOrder = async (orderId, currency, value, bff, collectedBy, paymentType, state, sellerId) => {
   try {
@@ -16,39 +19,41 @@ const getAllOrders = async (data) => {
   try {
     const whereCondition = {};
     if (data.orderId) {
-      whereCondition.orderId = { [Op.iLike]: `%${orderId}%` };
+      whereCondition.orderId = { [Op.iLike]: `%${data.orderId}%` };
     }
     if (data.currency) {
-      whereCondition.currency = { [Op.iLike]: `%${currency}%` };
+      whereCondition.currency = { [Op.iLike]: `%${data.currency}%` };
     }
     if (data.value) {
-      whereCondition.value = { [Op.iLike]: `%${value}%` };
+      whereCondition.value = { [Op.iLike]: `%${data.value}%` };
     }
     if (data.bff) {
-      whereCondition.bff = { [Op.iLike]: `%${bff}%` };
+      whereCondition.bff = { [Op.iLike]: `%${data.bff}%` };
     }
     if (data.collectedBy) {
-      whereCondition.collectedBy = { [Op.iLike]: `%${collectedBy}%` };
+      whereCondition.collectedBy = { [Op.iLike]: `%${data.collectedBy}%` };
     }
     if (data.paymentType) {
-      whereCondition.paymentType = { [Op.iLike]: `%${paymentType}%` };
+      whereCondition.paymentType = { [Op.iLike]: `%${data.paymentType}%` };
     }
     if (data.state) {
-      whereCondition.state = { [Op.iLike]: `%${state}%` };
+      whereCondition.state = { [Op.iLike]: `%${data.state}%` };
     }
     // Adding conditions for filtering by startTime and endTime
     if (data.startTime && data.endTime) {
-      // Convert epoch timestamps to JavaScript Date objects in milliseconds
-      const startDate = parseInt(startTime);
-      const endDate = parseInt(endTime);
+      const startDate = moment(data.startTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+      const endDate = moment(data.endTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
 
-      if (startDate <= endDate) {
-        whereCondition.createdAt = {
-          [Op.gte]: startDate,
-          [Op.lte]: endDate,
-        };
+      if (startDate.isValid() && endDate.isValid()) {
+        if (startDate <= endDate) {
+          whereCondition.createdAt = {
+            [Op.between]: [startDate.toDate(), endDate.toDate()],
+          };
+        } else {
+          throw new BadRequestParameterError(MESSAGES.TIMEZONE_ERROR);
+        }
       } else {
-        throw new Error('startTime must be less than or equal to endTime');
+        throw new BadRequestParameterError(MESSAGES.INVALID_DATE);
       }
     }
 
@@ -98,9 +103,29 @@ const getOrderStateCounts = async () => {
 };
 
 
-const exportToExcel = async (filePath) => {
+const exportToExcel = async (filePath, startTime, endTime) => {
   try {
-    const orders = await Order.findAll();
+    const whereCondition = {};
+    if (startTime && endTime) {
+      const startDate = moment(startTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+      const endDate = moment(endTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+
+      if (startDate.isValid() && endDate.isValid()) {
+        if (startDate <= endDate) {
+          whereCondition.createdAt = {
+            [Op.between]: [startDate.toDate(), endDate.toDate()],
+          };
+        } else {
+          throw new BadRequestParameterError(MESSAGES.TIMEZONE_ERROR);
+        }
+      } else {
+        throw new BadRequestParameterError(MESSAGES.INVALID_DATE);
+      }
+    }
+
+    const orders = await Order.findAll({
+      where: whereCondition
+    });
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Orders');
