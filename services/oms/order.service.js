@@ -45,6 +45,9 @@ class OrderService {
       if (data.state) {
         whereCondition.state = { [Op.iLike]: `%${data.state}%` };
       }
+      if (data.SellerId) {
+        whereCondition.SellerId = data.SellerId;
+      }
       // Adding conditions for filtering by startTime and endTime
       if (data.startTime && data.endTime) {
         const startDate = moment(data.startTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
