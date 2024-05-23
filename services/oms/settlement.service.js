@@ -2,51 +2,61 @@
 import { SettlementDetails,Seller} from '../../models';
 import { Op } from 'sequelize';
 import ExcelJS from 'exceljs'
+import moment from 'moment';
+import MESSAGES from '../../utils/messages';
+import {BadRequestParameterError} from '../../lib/errors/errors';
 
-
-const createSettlementDetails = async (settlementType, accountNo, bankName, branchName, orderId) => {
+const createSettlementDetails = async (settlementType, settlement_bank_account_no, UPI,beneficiary_name, bankName, branchName, OrderId, SellerId) => {
     try {
-        const newSettlementDetails = await SettlementDetails.create({ settlementType, accountNo, bankName, branchName, orderId });
+        const newSettlementDetails = await SettlementDetails.create({ settlementType, settlement_bank_account_no, UPI,beneficiary_name, bankName, branchName, OrderId, SellerId });
         return newSettlementDetails;
     } catch (err) {
         throw new Error(err);
     }
 };
 
-const getAllSettlementDetails = async (limit, offset, bankName, branchName, settlementType, accountNo, startTime, endTime) => {
+const getAllSettlementDetails = async (data) => {
     try {
         const whereCondition = {};
-        if (bankName) {
-            whereCondition.bankName = { [Op.iLike]: `%${bankName}%` };
+        if (data.bankName) {
+            whereCondition.bankName = { [Op.iLike]: `%${data.bankName}%` };
         }
-        if (branchName) {
-            whereCondition.branchName = { [Op.iLike]: `%${branchName}%` };
+        if (data.branchName) {
+            whereCondition.branchName = { [Op.iLike]: `%${data.branchName}%` };
         }
-        if (settlementType) {
-            whereCondition.settlementType = { [Op.iLike]: `%${settlementType}%` };
+        if (data.settlementType) {
+            whereCondition.settlementType = { [Op.iLike]: `%${data.settlementType}%` };
         }
-        if (accountNo) {
-            whereCondition.accountNo = { [Op.iLike]: `%${accountNo}%` };
+        if (data.settlement_bank_account_no) {
+            whereCondition.settlement_bank_account_no = { [Op.iLike]: `%${data.settlement_bank_account_no}%` };
         }
-        // Adding conditions for filtering by startTime and endTime
-        if (startTime && endTime) {
-            // Convert epoch timestamps to JavaScript Date objects in milliseconds
-            const startDate = parseInt(startTime);
-            const endDate = parseInt(endTime);
-      
-            if (startDate <= endDate) {
-              whereCondition.createdAt = {
-                [Op.gte]: startDate,
-                [Op.lte]: endDate,
-              };
-            } else {
-              throw new Error('startTime must be less than or equal to endTime');
-            }
+        if (data.beneficiary_name) {
+            whereCondition.beneficiary_name = { [Op.iLike]: `%${data.beneficiary_name}` }
+        }
+        if (data.UPI) {
+            whereCondition.UPI = { [Op.iLike]: `%${data.UPI}` }
+        }
+    // Adding conditions for filtering by startTime and endTime
+    if (data.startTime && data.endTime) {
+        const startDate = moment(data.startTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+        const endDate = moment(data.endTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+  
+        if (startDate.isValid() && endDate.isValid()) {
+          if (startDate <= endDate) {
+            whereCondition.createdAt = {
+              [Op.between]: [startDate.toDate(), endDate.toDate()],
+            };
+          } else {
+            throw new BadRequestParameterError(MESSAGES.TIMEZONE_ERROR);
           }
+        } else {
+          throw new BadRequestParameterError(MESSAGES.INVALID_DATE);
+        }
+      }
         const settlementDetails = await SettlementDetails.findAndCountAll({
             where: whereCondition,
-            offset: offset,
-            limit: limit,
+            offset: data.offset,
+            limit: data.limit,
             order: [['createdAt', 'DESC']],
             include:[{model:Seller}]
         });
@@ -70,9 +80,29 @@ const getSettlementById = async (id) => {
     }
 };
 
-const exportToExcel = async (filePath) => {
+const exportToExcel = async (filePath, startTime, endTime) => {
     try {
-        const settlementDetails = await SettlementDetails.findAll();
+        const whereCondition = {};
+        if (startTime && endTime) {
+          // Parse and format dates using moment-timezone
+          const startDate = moment(startTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+          const endDate = moment(endTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+    
+          if (startDate.isValid() && endDate.isValid()) {
+            if (startDate <= endDate) {
+              whereCondition.createdAt = {
+                [Op.between]: [startDate.toDate(), endDate.toDate()],
+              };
+            } else {
+              throw new BadRequestParameterError(MESSAGES.TIMEZONE_ERROR);
+            }
+          } else {
+            throw new BadRequestParameterError(MESSAGES.INVALID_DATE);
+          }
+        }
+        const settlementDetails = await SettlementDetails.findAll({
+            where: whereCondition
+        });
 
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('SettlementDetails');
