@@ -2,55 +2,60 @@
 import { Issue} from '../../models';
 import { Op } from 'sequelize';
 import ExcelJS from 'exceljs';
+import moment from 'moment';
+import MESSAGES from '../../utils/messages';
+import {BadRequestParameterError} from '../../lib/errors/errors';
 
-const createIssue = async (category, issueId, subCategory, issueStatus, orderId) => {
+const createIssue = async (category, issueId, subCategory, issueStatus, OrderId) => {
   try {
-    const newIssue = await Issue.create({ category, issueId, subCategory, issueStatus, orderId });
+    const newIssue = await Issue.create({ category, issueId, subCategory, issueStatus, OrderId });
     return newIssue;
   } catch (err) {
     throw new Error(err);
   }
 };
 
-const getAllIssues = async (limit, offset, category, issueId, issueStatus, orderId, subCategory, startTime, endTime) => {
+const getAllIssues = async (data) => {
   try {
     // Build the where condition for category and subCategory filters
     const whereCondition = {};
-    if (category) {
-      whereCondition.category = { [Op.iLike]: `%${category}%` };
+    if (data.category) {
+      whereCondition.category = { [Op.iLike]: `%${data.category}%` };
     }
-    if (issueId) {
-      whereCondition.issueId = { [Op.iLike]: `%${issueId}%` };
+    if (data.issueId) {
+      whereCondition.issueId = { [Op.iLike]: `%${data.issueId}%` };
     }
-    if (subCategory) {
-      whereCondition.subCategory = { [Op.iLike]: `%${subCategory}%` };
+    if (data.subCategory) {
+      whereCondition.subCategory = { [Op.iLike]: `%${data.subCategory}%` };
     }
-    if (issueStatus) {
-      whereCondition.issueStatus = { [Op.iLike]: `%${issueStatus}%` };
+    if (data.issueStatus) {
+      whereCondition.issueStatus = { [Op.iLike]: `%${data.issueStatus}%` };
     }
-    if (orderId) {
-      whereCondition.orderId = { [Op.iLike]: `%${orderId}%` };
+    if (data.OrderId) {
+      whereCondition.OrderId = { [Op.iLike]: `%${data.OrderId}%` };
     }
     // Adding conditions for filtering by startTime and endTime
-    if (startTime && endTime) {
-      // Convert epoch timestamps to JavaScript Date objects in milliseconds
-      const startDate = parseInt(startTime);
-      const endDate = parseInt(endTime);
+    if (data.startTime && data.endTime) {
+      const startDate = moment(data.startTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+      const endDate = moment(data.endTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
 
-      if (startDate <= endDate) {
-        whereCondition.createdAt = {
-          [Op.gte]: startDate,
-          [Op.lte]: endDate,
-        };
+      if (startDate.isValid() && endDate.isValid()) {
+        if (startDate <= endDate) {
+          whereCondition.createdAt = {
+            [Op.between]: [startDate.toDate(), endDate.toDate()],
+          };
+        } else {
+          throw new BadRequestParameterError(MESSAGES.TIMEZONE_ERROR);
+        }
       } else {
-        throw new Error('startTime must be less than or equal to endTime');
+        throw new BadRequestParameterError(MESSAGES.INVALID_DATE);
       }
     }
 
     const issues = await Issue.findAndCountAll({
       where: whereCondition,
-      offset: offset,
-      limit: limit,
+      offset: data.offset,
+      limit: data.limit,
       order: [['createdAt', 'DESC']],
     });
     return issues;
@@ -72,9 +77,29 @@ const getIssueById = async (id) => {
   }
 };
 
-const exportToExcel = async (filePath) => {
+const exportToExcel = async (filePath, startTime, endTime) => {
   try {
-    const issues = await Issue.findAll();
+    const whereCondition = {};
+    if (startTime && endTime) {
+      const startDate = moment(startTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+      const endDate = moment(endTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+
+      if (startDate.isValid() && endDate.isValid()) {
+        if (startDate <= endDate) {
+          whereCondition.createdAt = {
+            [Op.between]: [startDate.toDate(), endDate.toDate()],
+          };
+        } else {
+          throw new BadRequestParameterError(MESSAGES.TIMEZONE_ERROR);
+        }
+      } else {
+        throw new BadRequestParameterError(MESSAGES.INVALID_DATE);
+      }
+    }
+
+    const issues = await Issue.findAll({
+      where: whereCondition
+    });
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Issues');
