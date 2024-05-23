@@ -2,6 +2,9 @@
 import { Op } from 'sequelize';
 import ExcelJS from 'exceljs';
 import {Seller, Order, sequelize} from '../../models';
+import moment from 'moment';
+import MESSAGES from '../../utils/messages';
+import {BadRequestParameterError} from '../../lib/errors/errors';
 
 // const { Seller, Order } = models;
 
@@ -14,41 +17,43 @@ const createSeller = async (gst, pan, bppId, name) => {
   }
 };
 
-const getAllSellers = async (limit, offset, name, gst, pan, bpp_id, startTime, endTime) => {
+const getAllSellers = async (data) => {
   try {
     const whereCondition = {};
-    if (name) {
-      whereCondition.name = { [Op.iLike]: `%${name}%` };
+    if (data.name) {
+      whereCondition.name = { [Op.iLike]: `%${data.name}%` };
     }
-    if (gst) {
-      whereCondition.gst = { [Op.iLike]: `%${gst}%` };
+    if (data.gst) {
+      whereCondition.gst = { [Op.iLike]: `%${data.gst}%` };
     }
-    if (pan) {
-      whereCondition.pan = { [Op.iLike]: `%${pan}%` };
+    if (data.pan) {
+      whereCondition.pan = { [Op.iLike]: `%${data.pan}%` };
     }
-    if(bpp_id){
-      whereCondition.bpp_id = {[Op.iLike]: `%${bpp_id}`}
+    if(data.bpp_id){
+      whereCondition.bpp_id = {[Op.iLike]: `%${data.bpp_id}`}
     }
     // Adding conditions for filtering by startTime and endTime
-    if (startTime && endTime) {
-      // Convert epoch timestamps to JavaScript Date objects in milliseconds
-      const startDate = parseInt(startTime);
-      const endDate = parseInt(endTime);
+    if (data.startTime && data.endTime) {
+      const startDate = moment(data.startTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+      const endDate = moment(data.endTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
 
-      if (startDate <= endDate) {
-        whereCondition.createdAt = {
-          [Op.gte]: startDate,
-          [Op.lte]: endDate,
-        };
+      if (startDate.isValid() && endDate.isValid()) {
+        if (startDate <= endDate) {
+          whereCondition.createdAt = {
+            [Op.between]: [startDate.toDate(), endDate.toDate()],
+          };
+        } else {
+          throw new BadRequestParameterError(MESSAGES.TIMEZONE_ERROR);
+        }
       } else {
-        throw new Error('startTime must be less than or equal to endTime');
+        throw new BadRequestParameterError(MESSAGES.INVALID_DATE);
       }
     }
 
     const sellers = await Seller.findAndCountAll({
       where: whereCondition,
-      offset: offset,
-      limit: limit,
+      offset: data.offset,
+      limit: data.limit,
       order: [['createdAt', 'DESC']],
     });
     return sellers;
@@ -270,9 +275,29 @@ const getAccountCollectedReport = async ({ limit, offset, dateRangeValues }) => 
   }
 };
 
-const exportToExcel = async (filePath) => {
+const exportToExcel = async (filePath, startTime, endTime) => {
   try {
-    const sellers = await Seller.findAll();
+    const whereCondition = {};
+    if (startTime && endTime) {
+      // Parse and format dates using moment-timezone
+      const startDate = moment(startTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+      const endDate = moment(endTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+
+      if (startDate.isValid() && endDate.isValid()) {
+        if (startDate <= endDate) {
+          whereCondition.createdAt = {
+            [Op.between]: [startDate.toDate(), endDate.toDate()],
+          };
+        } else {
+          throw new BadRequestParameterError(MESSAGES.TIMEZONE_ERROR);
+        }
+      } else {
+        throw new BadRequestParameterError(MESSAGES.INVALID_DATE);
+      }
+    }
+    const sellers = await Seller.findAll({
+      where: whereCondition
+    });
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Sellers');
