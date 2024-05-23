@@ -42,6 +42,9 @@ class SettlementDetailsService {
       if (data.UPI) {
         whereCondition.UPI = { [Op.iLike]: `%${data.UPI}` }
       }
+      if(data.SellerId) {
+        whereCondition.SellerId = data.SellerId
+      }
       // Adding conditions for filtering by startTime and endTime
       if (data.startTime && data.endTime) {
         const startDate = moment(data.startTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
