@@ -1,5 +1,5 @@
 // services/return.service.js
-import { Return } from '../../models';
+import { Return, Order } from '../../models';
 import { Op } from 'sequelize';
 import ExcelJS from 'exceljs';
 import moment from 'moment';
@@ -34,7 +34,7 @@ class ReturnService {
         whereCondition.reason = { [Op.iLike]: `%${data.reason}%` };
       }
       if (data.OrderId) {
-        whereCondition.OrderId = { [Op.iLike]: `%${data.OrderId}%` };
+        whereCondition.OrderId = data.OrderId;
       }
       // Adding conditions for filtering by startTime and endTime
       if (data.startTime && data.endTime) {
@@ -55,6 +55,12 @@ class ReturnService {
       }
       const returns = await Return.findAndCountAll({
         where: whereCondition,
+        include: [
+          {
+            model: Order,
+            where: { SellerId: data.SellerId },
+          },
+        ], 
         offset: data.offset,
         limit: data.limit,
         order: [['createdAt', 'DESC']],
