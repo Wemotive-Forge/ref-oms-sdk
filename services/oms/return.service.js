@@ -1,50 +1,56 @@
 // services/return.service.js
 import { Return} from '../../models';
+import { Op } from 'sequelize';
 import ExcelJS from 'exceljs';
+import moment from 'moment';
+import MESSAGES from '../../utils/messages';
+import {BadRequestParameterError} from '../../lib/errors/errors';
 
-const createReturn = async (returnId, amount, reason, orderId) => {
+const createReturn = async (returnId, amount, reason, OrderId) => {
   try {
-    const newReturn = await Return.create({ returnId, amount, reason, orderId });
+    const newReturn = await Return.create({ returnId, amount, reason, OrderId });
     return newReturn;
   } catch (err) {
     throw new Error(err);
   }
 };
 
-const getAllReturns = async (returnId, amount, reason, orderId ,limit, offset, startTime, endTime) => {
+const getAllReturns = async (data) => {
   try {
     const whereCondition = {};
-    if (returnId) {
-      whereCondition.returnId = { [Op.iLike]: `%${returnId}%` };
+    if (data.returnId) {
+      whereCondition.returnId = { [Op.iLike]: `%${data.returnId}%` };
     }
-    if (amount) {
-      whereCondition.amount = { [Op.iLike]: `%${amount}%` };
+    if (data.amount) {
+      whereCondition.amount = { [Op.iLike]: `%${data.amount}%` };
     }
-    if (reason) {
-      whereCondition.reason = { [Op.iLike]: `%${reason}%` };
+    if (data.reason) {
+      whereCondition.reason = { [Op.iLike]: `%${data.reason}%` };
     }
-    if (orderId) {
-      whereCondition.orderId = { [Op.iLike]: `%${orderId}%` };
+    if (data.OrderId) {
+      whereCondition.OrderId = { [Op.iLike]: `%${data.OrderId}%` };
     }
     // Adding conditions for filtering by startTime and endTime
-    if (startTime && endTime) {
-      // Convert epoch timestamps to JavaScript Date objects in milliseconds
-      const startDate = parseInt(startTime);
-      const endDate = parseInt(endTime);
+    if (data.startTime && data.endTime) {
+      const startDate = moment(data.startTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+      const endDate = moment(data.endTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
 
-      if (startDate <= endDate) {
-        whereCondition.createdAt = {
-          [Op.gte]: startDate,
-          [Op.lte]: endDate,
-        };
+      if (startDate.isValid() && endDate.isValid()) {
+        if (startDate <= endDate) {
+          whereCondition.createdAt = {
+            [Op.between]: [startDate.toDate(), endDate.toDate()],
+          };
+        } else {
+          throw new BadRequestParameterError(MESSAGES.TIMEZONE_ERROR);
+        }
       } else {
-        throw new Error('startTime must be less than or equal to endTime');
+        throw new BadRequestParameterError(MESSAGES.INVALID_DATE);
       }
     }
     const returns = await Return.findAndCountAll({
       where: whereCondition,
-      offset: offset,
-      limit: limit,
+      offset: data.offset,
+      limit: data.limit,
       order: [['createdAt', 'DESC']],
     });
     return returns;
@@ -66,9 +72,29 @@ const getReturnById = async (id) => {
   }
 };
 
-const exportToExcel = async (filePath) => {
+const exportToExcel = async (filePath, startTime, endTime) => {
   try {
-    const returns = await Return.findAll();
+    const whereCondition = {};
+    if (startTime && endTime) {
+      // Parse and format dates using moment-timezone
+      const startDate = moment(startTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+      const endDate = moment(endTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+
+      if (startDate.isValid() && endDate.isValid()) {
+        if (startDate <= endDate) {
+          whereCondition.createdAt = {
+            [Op.between]: [startDate.toDate(), endDate.toDate()],
+          };
+        } else {
+          throw new BadRequestParameterError(MESSAGES.TIMEZONE_ERROR);
+        }
+      } else {
+        throw new BadRequestParameterError(MESSAGES.INVALID_DATE);
+      }
+    }
+    const returns = await Return.findAll({
+      where: whereCondition
+    });
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Returns');
