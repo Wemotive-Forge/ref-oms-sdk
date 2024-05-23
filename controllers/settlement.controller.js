@@ -3,9 +3,9 @@ import {settlementService} from "../services/oms";
 import fs from 'fs';
 
 const createSettlementDetails = async (req, res) => {
-    const { settlementType, accountNo, bankName, branchName, orderId } = req.body;
+    const { settlementType, settlement_bank_account_no, UPI,beneficiary_name, bankName, branchName, OrderId, SellerId } = req.body;
     try {
-        const newSettlementDetails = await settlementService.createSettlementDetails(settlementType, accountNo, bankName, branchName, orderId);
+        const newSettlementDetails = await settlementService.createSettlementDetails(settlementType, settlement_bank_account_no, UPI,beneficiary_name, bankName, branchName, OrderId, SellerId);
         res.json(newSettlementDetails);
     } catch (err) {
         console.error('Error creating settlement details', err);
@@ -15,8 +15,7 @@ const createSettlementDetails = async (req, res) => {
 
 const getAllSettlementDetails = async (req, res) => {
     try {
-        const { limit, offset, settlementType, accountNo, bankName, branchName, startTime, endTime } = req.query;
-        const settlementDetails = await settlementService.getAllSettlementDetails(limit, offset,settlementType, accountNo, bankName, branchName, startTime, endTime);
+        const settlementDetails = await settlementService.getAllSettlementDetails(req.query);
         res.json(settlementDetails);
     } catch (err) {
         console.error('Error getting settlement details', err);
@@ -35,9 +34,10 @@ const getSettlementById = async(req, res)=> {
   }
 
 const exportToExcel = async (req, res) => {
+    const { startTime, endTime } = req.query
     const filePath = 'settlementDetails.xlsx';
     try {
-        await settlementService.exportToExcel(filePath);
+        await settlementService.exportToExcel(filePath, startTime, endTime);
         res.download(filePath, (err) => {
             if (err) {
                 throw new Error('Error downloading file');

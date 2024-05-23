@@ -3,9 +3,9 @@ import {issueService} from "../services/oms";
 import fs from 'fs';
 
 const createIssue = async (req, res) => {
-  const { category, issueId, subCategory, issueStatus, orderId } = req.body;
+  const { category, issueId, subCategory, issueStatus, OrderId } = req.body;
   try {
-    const newIssue = await issueService.createIssue(category, issueId, subCategory, issueStatus, orderId);
+    const newIssue = await issueService.createIssue(category, issueId, subCategory, issueStatus, OrderId);
     res.json(newIssue);
   } catch (err) {
     console.error('Error creating issue', err);
@@ -15,8 +15,7 @@ const createIssue = async (req, res) => {
 
 const getAllIssues = async (req, res) => {
   try {
-    const { limit, offset, category, issueId, subCategory, issueStatus, orderId, startTime, endTime } = req.query;
-    const issues = await issueService.getAllIssues(limit, offset, category, issueId, subCategory, issueStatus, orderId, startTime, endTime);
+    const issues = await issueService.getAllIssues(req.query);
     res.json(issues);
   } catch (err) {
     console.error('Error getting issues', err);
@@ -35,9 +34,10 @@ const getIssueById = async(req, res)=> {
 }
 
 const exportToExcel = async (req, res) => {
+  const { startTime, endTime } = req.query
   const filePath = 'issues.xlsx';
   try {
-    await issueService.exportToExcel(filePath);
+    await issueService.exportToExcel(filePath, startTime, endTime);
     res.download(filePath, (err) => {
       if (err) {
         throw new Error('Error downloading file');

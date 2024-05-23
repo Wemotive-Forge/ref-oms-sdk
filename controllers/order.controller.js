@@ -44,9 +44,10 @@ const getOrderStateCounts = async (req, res) => {
 };
 
 const exportToExcel = async (req, res) => {
+  const { startTime, endTime } = req.query
   const filePath = 'orders.xlsx';
   try {
-    await orderService.exportToExcel(filePath);
+    await orderService.exportToExcel(filePath, startTime, endTime);
     res.download(filePath, (err) => {
       if (err) {
         throw new Error('Error downloading file');

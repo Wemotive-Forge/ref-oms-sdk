@@ -3,9 +3,9 @@ import {returnService} from "../services/oms";
 import fs from 'fs';
 
 const createReturn = async (req, res) => {
-  const { returnId, amount, reason, orderId } = req.body;
+  const { returnId, amount, reason, OrderId } = req.body;
   try {
-    const newReturn = await returnService.createReturn(returnId, amount, reason, orderId);
+    const newReturn = await returnService.createReturn(returnId, amount, reason, OrderId);
     res.json(newReturn);
   } catch (err) {
     console.error('Error creating return', err);
@@ -15,8 +15,7 @@ const createReturn = async (req, res) => {
 
 const getAllReturns = async (req, res) => {
   try {
-    const { returnId, amount, reason, orderId,limit, offset, startTime, endTime } = req.query;
-    const returns = await returnService.getAllReturns(returnId, amount, reason, orderId,limit, offset, startTime, endTime);
+    const returns = await returnService.getAllReturns(req.query);
     res.json(returns);
   } catch (err) {
     console.error('Error getting returns', err);
@@ -35,9 +34,10 @@ const getReturnById = async(req, res)=> {
 }
 
 const exportToExcel = async (req, res) => {
+  const { startTime, endTime } = req.query
   const filePath = 'returns.xlsx';
   try {
-    await returnService.exportToExcel(filePath);
+    await returnService.exportToExcel(filePath, startTime, endTime);
     res.download(filePath, (err) => {
       if (err) {
         throw new Error('Error downloading file');
