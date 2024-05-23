@@ -1,5 +1,5 @@
 // services/issue.service.js
-import { Issue, sequelize } from '../../models';
+import { Issue, sequelize, Order } from '../../models';
 import { Op } from 'sequelize';
 import ExcelJS from 'exceljs';
 import moment from 'moment';
@@ -38,7 +38,7 @@ class IssueService {
         whereCondition.issueStatus = { [Op.iLike]: `%${data.issueStatus}%` };
       }
       if (data.OrderId) {
-        whereCondition.OrderId = { [Op.iLike]: `%${data.OrderId}%` };
+        whereCondition.OrderId = data.OrderId;
       }
       // Adding conditions for filtering by startTime and endTime
       if (data.startTime && data.endTime) {
@@ -60,6 +60,12 @@ class IssueService {
 
       const issues = await Issue.findAndCountAll({
         where: whereCondition,
+        include: [
+          {
+            model: Order,
+            where: { SellerId: data.SellerId },
+          },
+        ],  
         offset: data.offset,
         limit: data.limit,
         order: [['createdAt', 'DESC']],
