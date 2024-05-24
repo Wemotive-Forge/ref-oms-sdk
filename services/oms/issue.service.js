@@ -1,115 +1,152 @@
 // services/issue.service.js
-import { Issue} from '../../models';
+import { Issue, sequelize, Order } from '../../models';
 import { Op } from 'sequelize';
 import ExcelJS from 'exceljs';
+import moment from 'moment';
+import MESSAGES from '../../utils/messages';
+import { BadRequestParameterError } from '../../lib/errors/errors';
 
-const createIssue = async (category, issueId, subCategory, issueStatus, orderId) => {
-  try {
-    const newIssue = await Issue.create({ category, issueId, subCategory, issueStatus, orderId });
-    return newIssue;
-  } catch (err) {
-    throw new Error(err);
-  }
-};
+class IssueService {
 
-const getAllIssues = async (limit, offset, category, issueId, issueStatus, orderId, subCategory, startTime, endTime) => {
-  try {
-    // Build the where condition for category and subCategory filters
-    const whereCondition = {};
-    if (category) {
-      whereCondition.category = { [Op.iLike]: `%${category}%` };
+  async createIssue(data) {
+    let transaction;
+    try {
+      transaction = await sequelize.transaction();
+      const newIssue = await Issue.create(data, { transaction });
+      await transaction.commit();
+      return newIssue;
+    } catch (err) {
+      if (transaction) await transaction.rollback();
+      throw new Error(err);
     }
-    if (issueId) {
-      whereCondition.issueId = { [Op.iLike]: `%${issueId}%` };
-    }
-    if (subCategory) {
-      whereCondition.subCategory = { [Op.iLike]: `%${subCategory}%` };
-    }
-    if (issueStatus) {
-      whereCondition.issueStatus = { [Op.iLike]: `%${issueStatus}%` };
-    }
-    if (orderId) {
-      whereCondition.orderId = { [Op.iLike]: `%${orderId}%` };
-    }
-    // Adding conditions for filtering by startTime and endTime
-    if (startTime && endTime) {
-      // Convert epoch timestamps to JavaScript Date objects in milliseconds
-      const startDate = parseInt(startTime);
-      const endDate = parseInt(endTime);
+  };
 
-      if (startDate <= endDate) {
-        whereCondition.createdAt = {
-          [Op.gte]: startDate,
-          [Op.lte]: endDate,
-        };
-      } else {
-        throw new Error('startTime must be less than or equal to endTime');
+  async getAllIssues(data) {
+    try {
+      // Build the where condition for category and subCategory filters
+      const whereCondition = {};
+      if (data.category) {
+        whereCondition.category = { [Op.iLike]: `%${data.category}%` };
       }
-    }
-
-    const issues = await Issue.findAndCountAll({
-      where: whereCondition,
-      offset: offset,
-      limit: limit,
-      order: [['createdAt', 'DESC']],
-    });
-    return issues;
-  } catch (err) {
-    throw new Error(err);
-  }
-};
-
-const getIssueById = async (id) => {
-  try {
-    const issue = await Issue.findOne({
-      where: {
-        id: id
+      if (data.issueId) {
+        whereCondition.issueId = { [Op.iLike]: `%${data.issueId}%` };
       }
-    });
-    return issue;
-  } catch (err) {
-    throw new Error(err);
-  }
-};
+      if (data.subCategory) {
+        whereCondition.subCategory = { [Op.iLike]: `%${data.subCategory}%` };
+      }
+      if (data.issueStatus) {
+        whereCondition.issueStatus = { [Op.iLike]: `%${data.issueStatus}%` };
+      }
+      if (data.OrderId) {
+        whereCondition.OrderId = data.OrderId;
+      }
+      // Adding conditions for filtering by startTime and endTime
+      if (data.startTime && data.endTime) {
+        const startDate = moment(data.startTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+        const endDate = moment(data.endTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
 
-const exportToExcel = async (filePath) => {
-  try {
-    const issues = await Issue.findAll();
+        if (startDate.isValid() && endDate.isValid()) {
+          if (startDate <= endDate) {
+            whereCondition.createdAt = {
+              [Op.between]: [startDate.toDate(), endDate.toDate()],
+            };
+          } else {
+            throw new BadRequestParameterError(MESSAGES.TIMEZONE_ERROR);
+          }
+        } else {
+          throw new BadRequestParameterError(MESSAGES.INVALID_DATE);
+        }
+      }
 
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Issues');
-
-    // Define the columns
-    worksheet.columns = [
-      { header: 'Category', key: 'category', width: 20 },
-      { header: 'IssueId', key: 'issueId', width: 20},
-      { header: 'Subcategory', key: 'subCategory', width: 20 },
-      { header: 'Issue Status', key: 'issueStatus', width: 20 },
-      { header: 'Order ID', key: 'orderId', width: 20 }
-    ];
-
-    // Add data to the worksheet
-    issues.forEach(issue => {
-      worksheet.addRow({
-        category: issue.category,
-        issueId: issue.issueId,
-        subCategory: issue.subCategory,
-        issueStatus: issue.issueStatus,
-        orderId: issue.orderId
+      const issues = await Issue.findAndCountAll({
+        where: whereCondition,
+        include: [
+          {
+            model: Order,
+            where: { SellerId: data.SellerId },
+          },
+        ],  
+        offset: data.offset,
+        limit: data.limit,
+        order: [['createdAt', 'DESC']],
       });
-    });
+      return issues;
+    } catch (err) {
+      throw new Error(err);
+    }
+  };
 
-    // Save the workbook
-    await workbook.xlsx.writeFile(filePath);
-    console.log(`Excel file saved to ${filePath}`);
-  } catch (err) {
-    throw new Error('Error exporting to Excel');
-  }
-};
+  async getIssueById(id) {
+    try {
+      const issue = await Issue.findOne({
+        where: {
+          id: id
+        }
+      });
+      return issue;
+    } catch (err) {
+      throw new Error(err);
+    }
+  };
+  async exportToExcel(filePath, startTime, endTime) {
+    let transaction;
+    try {
+      transaction = await sequelize.transaction();
+      const whereCondition = {};
+      if (startTime && endTime) {
+        const startDate = moment(startTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+        const endDate = moment(endTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
 
-export default {
-  createIssue,
-  getAllIssues,
-  exportToExcel,
-  getIssueById
-};
+        if (startDate.isValid() && endDate.isValid()) {
+          if (startDate <= endDate) {
+            whereCondition.createdAt = {
+              [Op.between]: [startDate.toDate(), endDate.toDate()],
+            };
+          } else {
+            throw new BadRequestParameterError(MESSAGES.TIMEZONE_ERROR);
+          }
+        } else {
+          throw new BadRequestParameterError(MESSAGES.INVALID_DATE);
+        }
+      }
+
+      const issues = await Issue.findAll({
+        where: whereCondition,
+        transaction
+      });
+
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Issues');
+
+      // Define the columns
+      worksheet.columns = [
+        { header: 'Category', key: 'category', width: 20 },
+        { header: 'IssueId', key: 'issueId', width: 20 },
+        { header: 'Subcategory', key: 'subCategory', width: 20 },
+        { header: 'Issue Status', key: 'issueStatus', width: 20 },
+        { header: 'Order ID', key: 'orderId', width: 20 }
+      ];
+
+      // Add data to the worksheet
+      issues.forEach(issue => {
+        worksheet.addRow({
+          category: issue.category,
+          issueId: issue.issueId,
+          subCategory: issue.subCategory,
+          issueStatus: issue.issueStatus,
+          orderId: issue.orderId
+        });
+      });
+
+      // Save the workbook
+      await workbook.xlsx.writeFile(filePath);
+      await transaction.commit();
+      console.log(`Excel file saved to ${filePath}`);
+    } catch (err) {
+      if (transaction) await transaction.rollback();
+      throw new Error('Error exporting to Excel');
+    }
+  };
+}
+
+module.exports = new IssueService();

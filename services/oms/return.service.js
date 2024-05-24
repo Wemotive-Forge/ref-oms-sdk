@@ -1,107 +1,146 @@
 // services/return.service.js
-import { Return} from '../../models';
+import { Return, Order } from '../../models';
+import { Op } from 'sequelize';
 import ExcelJS from 'exceljs';
+import moment from 'moment';
+import MESSAGES from '../../utils/messages';
+import { BadRequestParameterError } from '../../lib/errors/errors';
 
-const createReturn = async (returnId, amount, reason, orderId) => {
-  try {
-    const newReturn = await Return.create({ returnId, amount, reason, orderId });
-    return newReturn;
-  } catch (err) {
-    throw new Error(err);
-  }
-};
+class ReturnService {
 
-const getAllReturns = async (returnId, amount, reason, orderId ,limit, offset, startTime, endTime) => {
-  try {
-    const whereCondition = {};
-    if (returnId) {
-      whereCondition.returnId = { [Op.iLike]: `%${returnId}%` };
+  async createReturn(data) {
+    let transaction;
+    try {
+      transaction = await sequelize.transaction();
+      const newReturn = await Return.create(data, { transaction });
+      await transaction.commit();
+      return newReturn;
+    } catch (err) {
+      if (transaction) await transaction.rollback();
+      throw new Error(err);
     }
-    if (amount) {
-      whereCondition.amount = { [Op.iLike]: `%${amount}%` };
-    }
-    if (reason) {
-      whereCondition.reason = { [Op.iLike]: `%${reason}%` };
-    }
-    if (orderId) {
-      whereCondition.orderId = { [Op.iLike]: `%${orderId}%` };
-    }
-    // Adding conditions for filtering by startTime and endTime
-    if (startTime && endTime) {
-      // Convert epoch timestamps to JavaScript Date objects in milliseconds
-      const startDate = parseInt(startTime);
-      const endDate = parseInt(endTime);
+  };
 
-      if (startDate <= endDate) {
-        whereCondition.createdAt = {
-          [Op.gte]: startDate,
-          [Op.lte]: endDate,
-        };
-      } else {
-        throw new Error('startTime must be less than or equal to endTime');
+  async getAllReturns(data) {
+    try {
+      const whereCondition = {};
+      if (data.returnId) {
+        whereCondition.returnId = { [Op.iLike]: `%${data.returnId}%` };
       }
-    }
-    const returns = await Return.findAndCountAll({
-      where: whereCondition,
-      offset: offset,
-      limit: limit,
-      order: [['createdAt', 'DESC']],
-    });
-    return returns;
-  } catch (err) {
-    throw new Error('Error getting returns');
-  }
-};
-
-const getReturnById = async (id) => {
-  try {
-    const returns = await Return.findOne({
-      where: {
-        id: id
+      if (data.amount) {
+        whereCondition.amount = { [Op.iLike]: `%${data.amount}%` };
       }
-    });
-    return returns;
-  } catch (err) {
-    throw new Error(err);
-  }
-};
+      if (data.reason) {
+        whereCondition.reason = { [Op.iLike]: `%${data.reason}%` };
+      }
+      if (data.OrderId) {
+        whereCondition.OrderId = data.OrderId;
+      }
+      // Adding conditions for filtering by startTime and endTime
+      if (data.startTime && data.endTime) {
+        const startDate = moment(data.startTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+        const endDate = moment(data.endTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
 
-const exportToExcel = async (filePath) => {
-  try {
-    const returns = await Return.findAll();
-
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Returns');
-
-    // Define the columns
-    worksheet.columns = [
-      { header: 'Return ID', key: 'returnId', width: 20 },
-      { header: 'Amount', key: 'amount', width: 20 },
-      { header: 'Reason', key: 'reason', width: 20 },
-      { header: 'Order ID', key: 'orderId', width: 20 }
-    ];
-
-    // Add data to the worksheet
-    returns.forEach(returnData => {
-      worksheet.addRow({
-        returnId: returnData.returnId,
-        amount: returnData.amount,
-        reason: returnData.reason,
-        orderId: returnData.orderId
+        if (startDate.isValid() && endDate.isValid()) {
+          if (startDate <= endDate) {
+            whereCondition.createdAt = {
+              [Op.between]: [startDate.toDate(), endDate.toDate()],
+            };
+          } else {
+            throw new BadRequestParameterError(MESSAGES.TIMEZONE_ERROR);
+          }
+        } else {
+          throw new BadRequestParameterError(MESSAGES.INVALID_DATE);
+        }
+      }
+      const returns = await Return.findAndCountAll({
+        where: whereCondition,
+        include: [
+          {
+            model: Order,
+            where: { SellerId: data.SellerId },
+          },
+        ], 
+        offset: data.offset,
+        limit: data.limit,
+        order: [['createdAt', 'DESC']],
       });
-    });
+      return returns;
+    } catch (err) {
+      throw new Error('Error getting returns');
+    }
+  };
 
-    // Save the workbook
-    await workbook.xlsx.writeFile(filePath);
-    console.log(`Excel file saved to ${filePath}`);
-  } catch (err) {
-    throw new Error('Error exporting to Excel');
-  }
-};
+  async getReturnById(id) {
+    try {
+      const returns = await Return.findOne({
+        where: {
+          id: id
+        }
+      });
+      return returns;
+    } catch (err) {
+      throw new Error(err);
+    }
+  };
 
-export default {
-  createReturn,
-  getAllReturns,
-  exportToExcel,
-  getReturnById
-};
+  async exportToExcel(filePath, startTime, endTime) {
+    let transaction;
+    try {
+      transaction = await sequelize.transaction();
+      const whereCondition = {};
+      if (startTime && endTime) {
+        // Parse and format dates using moment-timezone
+        const startDate = moment(startTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+        const endDate = moment(endTime, 'YYYY-MM-DD HH:mm:ss.SSSZ');
+
+        if (startDate.isValid() && endDate.isValid()) {
+          if (startDate <= endDate) {
+            whereCondition.createdAt = {
+              [Op.between]: [startDate.toDate(), endDate.toDate()],
+            };
+          } else {
+            throw new BadRequestParameterError(MESSAGES.TIMEZONE_ERROR);
+          }
+        } else {
+          throw new BadRequestParameterError(MESSAGES.INVALID_DATE);
+        }
+      }
+      const returns = await Return.findAll({
+        where: whereCondition,
+        transaction
+      });
+
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Returns');
+
+      // Define the columns
+      worksheet.columns = [
+        { header: 'Return ID', key: 'returnId', width: 20 },
+        { header: 'Amount', key: 'amount', width: 20 },
+        { header: 'Reason', key: 'reason', width: 20 },
+        { header: 'Order ID', key: 'orderId', width: 20 }
+      ];
+
+      // Add data to the worksheet
+      returns.forEach(returnData => {
+        worksheet.addRow({
+          returnId: returnData.returnId,
+          amount: returnData.amount,
+          reason: returnData.reason,
+          orderId: returnData.orderId
+        });
+      });
+
+      // Save the workbook
+      await workbook.xlsx.writeFile(filePath);
+      await transaction.commit();
+      console.log(`Excel file saved to ${filePath}`);
+    } catch (err) {
+      if (transaction) await transaction.rollback();
+      throw new Error('Error exporting to Excel');
+    }
+  };
+}
+
+module.exports = new ReturnService();
