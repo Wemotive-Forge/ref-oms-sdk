@@ -36,6 +36,12 @@ module.exports = (sequelize, DataTypes) => {
             values: ['Completed', 'Accepted', 'Cancelled', 'In-progress','Created'],
             allowNull: false,
         },
+        city: {
+            type: DataTypes.STRING,
+        },
+        areaCode: {
+            type: DataTypes.STRING,
+        },
         // sellerId: {
         //     type: DataTypes.UUID,
         //     allowNull: false,
@@ -59,6 +65,7 @@ module.exports = (sequelize, DataTypes) => {
 
     Order.associate = (models) => {
         Order.belongsTo(models.Seller, { onDelete: 'CASCADE' });
+        Order.belongsTo(models.Provider, { onDelete: 'CASCADE' });
         Order.hasMany(models.Issue, { onDelete: 'CASCADE' });
         Order.hasMany(models.Return, {  onDelete: 'CASCADE' });
         Order.hasOne(models.SettlementDetails);

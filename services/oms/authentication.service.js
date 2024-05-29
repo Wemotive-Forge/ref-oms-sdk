@@ -1,5 +1,5 @@
 import { JsonWebToken, Token } from '../../lib/authentication';
-import { Otp, Role, Sequelize,sequelize,SettlementDetails, User, UserRole,Order,Seller} from '../../models';
+import { Otp, Role, Sequelize,sequelize,SettlementDetails, User,  Provider,UserRole,Order,Seller} from '../../models';
 import BadRequestParameterError from '../../lib/errors/bad-request-parameter.error';
 import Mailer from '../../lib/mailer';
 import UnauthenticatedError from "../../lib/errors/unauthenticated.error";
@@ -135,14 +135,35 @@ class AuthenticationService {
 
                         console.log("seller exists---->",seller)
                         if(!seller){
+
+
+                            let bpp_term = order?.tags?.find(x => x.code === 'bpp_terms')
+
+                            let tax_number = bpp_term?.list?.find(x => x.code === 'tax_number')
+                            let pan_number = bpp_term?.list?.find(x => x.code === 'provider_tax_number')
+
+
                             console.log("seller not exists---->")
                             //create seller
                           seller= await new Seller({
                               bpp_id: order.bppId,
-                              name: order.bppId
+                              name: order.bppId,
+                              gst:tax_number?.value,
+                              pan:pan_number?.value
+
                           }).save({transaction});
                         }
 
+                        //load provider
+
+                        let provider = await Provider.findOne({where:{name:order.provider.descriptor.name,SellerId:seller.id}})
+
+                        if(!provider){
+                            provider= await new Provider({
+                                SellerId: seller.id,
+                                name: order.provider.descriptor.name
+                            }).save({transaction});
+                        }
                         //set settlement details
                         let settlementDetails = await SettlementDetails.findOne({where:{SellerId:seller.id}})
 
@@ -165,30 +186,43 @@ class AuthenticationService {
                        //find if order is there
                        let orderObj = await Order.findOne({where:{orderId:order.id}});
                         if(orderObj){
+
+                            let deliveryFulfillment = order.fulfillments.find(x => x.type === 'Delivery')
+                            let city = deliveryFulfillment.end.location.address.city
+                            let areaCode = deliveryFulfillment.end.location.address.area_code
                             //update
                             await Order.update({ orderId:order.id,
                                 currency: order.quote?.price?.currency ?? 'INR',
                                 value:parseFloat(order.quote?.price?.value ?? '0'),
                                 bff:parseFloat(order.settlementDetails?.['@ondc/org/buyer_app_finder_fee_amount'] ?? '0'),
-                                collectedBy:order.settlementDetails?.collected_by ?? 'NA',
-                                paymentType:order.settlementDetails?.type ?? 'NA',
+                                collectedBy:order.settlementDetails?.['@ondc/org/settlement_details'][0].settlement_counterparty ?? 'NA',
+                                paymentType:order.payment?.type  ?? 'NA',
                                 state:order.state ?? 'NA',
-                                SellerId:seller.id},{where:{orderId:order.id}},{transaction})
+                                SellerId:seller.id,ProviderId: provider.id,
+                                city:city,
+                                areaCode:areaCode
+                            },{where:{orderId:order.id}},{transaction})
+
                         }else{
                             //create
                             //TODO: @ondc/org/buyer_app_finder_fee_type
-
+                            let deliveryFulfillment = order.fulfillments.find(x => x.type === 'Delivery')
+                            let city = deliveryFulfillment.end.location.address.city
+                            let areaCode = deliveryFulfillment.end.location.address.area_code
                             await new Order({
                                 orderId:order.id,
                                 currency: order.quote?.price?.currency ?? 'INR',
                                 value:parseFloat(order.quote?.price?.value ?? '0'),
                                 bff:parseFloat(order.settlementDetails?.['@ondc/org/buyer_app_finder_fee_amount'] ?? '0'),
-                                collectedBy:order.settlementDetails?.collected_by ?? 'NA',
-                                paymentType:order.settlementDetails?.type ?? 'NA',
+                                collectedBy:order.settlementDetails?.['@ondc/org/settlement_details'][0].settlement_counterparty ?? 'NA',
+                                paymentType:order.payment?.type  ?? 'NA',
                                 state:order.state ?? 'NA',
                                 SellerId:seller.id,
                                 createdAt:order.createdAt,
-                                updatedAt:order.updatedAt
+                                updatedAt:order.updatedAt,
+                                ProviderId: provider.id,
+                                city:city,
+                                areaCode:areaCode
                             }).save({transaction})
 
                           await  transaction.commit()
