@@ -200,7 +200,9 @@ class AuthenticationService {
                                 state:order.state ?? 'NA',
                                 SellerId:seller.id,ProviderId: provider.id,
                                 city:city,
-                                areaCode:areaCode
+                                areaCode:areaCode,
+                                domain:order.domain
+
                             },{where:{orderId:order.id}},{transaction})
 
                         }else{
@@ -222,7 +224,8 @@ class AuthenticationService {
                                 updatedAt:order.updatedAt,
                                 ProviderId: provider.id,
                                 city:city,
-                                areaCode:areaCode
+                                areaCode:areaCode,
+                                domain:order.domain
                             }).save({transaction})
 
                           await  transaction.commit()

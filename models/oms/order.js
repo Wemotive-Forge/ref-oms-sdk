@@ -42,6 +42,9 @@ module.exports = (sequelize, DataTypes) => {
         areaCode: {
             type: DataTypes.STRING,
         },
+        domain: {
+            type: DataTypes.STRING,
+        },
         // sellerId: {
         //     type: DataTypes.UUID,
         //     allowNull: false,
