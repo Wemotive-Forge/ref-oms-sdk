@@ -21,7 +21,7 @@ class OrderService {
     }
   };
 
-  async getAllOrders(data) {
+  async getAllOrders(data,dateRangeValues) {
     try {
       const whereCondition = {};
       if (data.orderId) {
@@ -38,6 +38,12 @@ class OrderService {
       }
       if (data.collectedBy) {
         whereCondition.collectedBy = { [Op.iLike]: `%${data.collectedBy}%` };
+      }
+      if (data.domain) {
+        whereCondition.domain = { [Op.iLike]: `%${data.domain}%` };
+      }
+      if (data.city) {
+        whereCondition.city = { [Op.iLike]: `%${data.city}%` };
       }
       if (data.paymentType) {
         whereCondition.paymentType = { [Op.iLike]: `%${data.paymentType}%` };
@@ -63,6 +69,14 @@ class OrderService {
           }
         } else {
           throw new BadRequestParameterError(MESSAGES.INVALID_DATE);
+        }
+      }
+      if(dateRangeValues){
+        console.log({dateRangeValues})
+        console.log(dateRangeValues.startDate)
+        console.log(dateRangeValues.endDate)
+        whereCondition.createdAt = {
+            [Op.between]: [dateRangeValues.startDate, dateRangeValues.endDate]
         }
       }
 

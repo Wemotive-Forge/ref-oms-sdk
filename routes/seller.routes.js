@@ -5,6 +5,7 @@ import {sellerController} from "../controllers";
 
 
 router.get('/sellers/salesReport', sellerController.getSalesReport);
+router.get('/sellers/financeReport', sellerController.getFinanceReport);
 router.get('/sellers/salesReportTrend', sellerController.getSalesReportTrend);
 router.get('/sellers/accountPayableReport', sellerController.getAccountPayableReport);
 router.get('/sellers/accountCollectedReport', sellerController.getAccountCollectedReport);

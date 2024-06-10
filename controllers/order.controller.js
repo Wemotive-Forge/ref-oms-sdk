@@ -1,5 +1,6 @@
 // controllers/order.controller.js
 import { orderService } from "../services/oms";
+import { getDateRange } from "../utils/utilityFunctions";
 import fs from 'fs';
 
 class OrderController {
@@ -17,7 +18,11 @@ class OrderController {
 
   async getAllOrders(req, res) {
     try {
-      const orders = await orderService.getAllOrders(req.query);
+      let dateRangeValues
+      if (req.query.dateRange) {
+        dateRangeValues = await getDateRange(req.query.dateRange);
+      }
+      const orders = await orderService.getAllOrders(req.query,dateRangeValues);
       res.json(orders);
     } catch (err) {
       console.error('Error getting orders', err);

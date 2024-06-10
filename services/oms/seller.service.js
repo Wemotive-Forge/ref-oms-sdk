@@ -120,6 +120,35 @@ class SellerService {
     }
   };
 
+  async getFinanceReport({ limit, offset, dateRangeValues }) {
+    try {
+
+        let query = {}
+        if (dateRangeValues) {
+          query = {
+            createdAt: {
+              [Op.between]: [dateRangeValues.startDate, dateRangeValues.endDate]
+            }
+          }
+        }
+
+        const stateCounts = await Order.findAll({
+          where: query,
+          attributes: [
+            [sequelize.fn('SUM', sequelize.col('value')), 'value'],
+            [sequelize.fn('SUM', sequelize.col('finalValue')), 'finalValue'],
+            [sequelize.fn('SUM', sequelize.col('bff')), 'bff']
+          ],
+          include:[{model:Seller}]
+        })
+
+      return stateCounts;
+    } catch (err) {
+      console.error('Error fetching sales report:', err);
+      throw new Error('Error fetching sales report');
+    }
+  };
+
   async getSalesReportTrend({ limit, offset, dateRangeValues, interval }) {
     try {
 
