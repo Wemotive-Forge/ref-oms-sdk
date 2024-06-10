@@ -1,5 +1,5 @@
 import { JsonWebToken, Token } from '../../lib/authentication';
-import { Otp, Role, Sequelize,sequelize,SettlementDetails, User,  Provider,UserRole,Order,Seller} from '../../models';
+import { Otp, Role, Sequelize,sequelize,SettlementDetails,Fulfillment,Item, User,  Provider,UserRole,Order,Seller} from '../../models';
 import BadRequestParameterError from '../../lib/errors/bad-request-parameter.error';
 import Mailer from '../../lib/mailer';
 import UnauthenticatedError from "../../lib/errors/unauthenticated.error";
@@ -191,19 +191,77 @@ class AuthenticationService {
                             let city = deliveryFulfillment.end.location.address.city
                             let areaCode = deliveryFulfillment.end.location.address.area_code
                             //update
-                            await Order.update({ orderId:order.id,
+                            let savedOrder = await Order.update({ orderId:order.id,
                                 currency: order.quote?.price?.currency ?? 'INR',
                                 value:parseFloat(order.quote?.price?.value ?? '0'),
-                                bff:parseFloat(order.settlementDetails?.['@ondc/org/buyer_app_finder_fee_amount'] ?? '0'),
+                                bff:parseFloat(order.settlementDetails?.['@ondc/org/buyer_app_finder_fee_amount'] ?? '0')*parseFloat(order.quote?.price?.value ?? '0')/100,
                                 collectedBy:order.settlementDetails?.['@ondc/org/settlement_details'][0].settlement_counterparty ?? 'NA',
                                 paymentType:order.payment?.type  ?? 'NA',
                                 state:order.state ?? 'NA',
                                 SellerId:seller.id,ProviderId: provider.id,
                                 city:city,
                                 areaCode:areaCode,
-                                domain:order.domain
+                                domain:order.domain,
+                                paymentStatus:order.payment?.status,
+                                settlement:order.settlementDetails,
+                                finalValue:parseFloat(order.quote?.price?.value ?? '0')
 
                             },{where:{orderId:order.id}},{transaction})
+
+                            for(let fulfillment of order.fulfillments){
+
+                                let oldFl = await Fulfillment.findOne({
+                                    fulfillmentId:fulfillment.id,
+                                    OrderId:orderObj.id
+                                });
+
+                                if(oldFl){
+                                    //update
+                                     await Fulfillment.update({
+                                        fulfillmentId:fulfillment.id,
+                                        fulfillmentState:fulfillment.state.descriptor.code,
+                                        fulfillmentType:fulfillment.type,
+                                        details:fulfillment,
+                                        OrderId:orderObj.id
+                                    },{where:{OrderId:orderObj.id,fulfillmentId:fulfillment.id}},{transaction});
+
+                                }else{
+                                    let fl = await new Fulfillment({
+                                        fulfillmentId:fulfillment.id,
+                                        fulfillmentState:fulfillment.state.descriptor.code,
+                                        fulfillmentType:fulfillment.type,
+                                        details:fulfillment,
+                                        OrderId:orderObj.id
+                                    }).save({transaction});
+                                }
+
+                            }
+                            for(let item of order.items){
+
+                                let oldSavedItems = await Item.findOne({where:{
+                                        itemId:item.id,
+                                        fulfillmentId:item.fulfillment_id,
+                                        OrderId:orderObj.id
+                                    }})
+                                if(oldSavedItems){
+                                    let itm = await Item.update({
+                                        itemId:item.id,
+                                        fulfillmentId:item.fulfillment_id,
+                                        quantity:item.quantity.count,
+                                        itemName:item.product.descriptor.name,
+                                        OrderId:orderObj.id
+                                    },{where:{OrderId:orderObj.id, itemId:item.id,fulfillmentId:item.fulfillment_id}},{transaction})
+                                }else{
+                                    let itm = await new Item({
+                                        itemId:item.id,
+                                        fulfillmentId:item.fulfillment_id,
+                                        quantity:item.quantity.count,
+                                        itemName:item.product.descriptor.name,
+                                        OrderId:orderObj.id
+                                    }).save({transaction});
+                                }
+
+                            }
 
                         }else{
                             //create
@@ -211,11 +269,11 @@ class AuthenticationService {
                             let deliveryFulfillment = order.fulfillments.find(x => x.type === 'Delivery')
                             let city = deliveryFulfillment.end.location.address.city
                             let areaCode = deliveryFulfillment.end.location.address.area_code
-                            await new Order({
+                           let savedOrder = await new Order({
                                 orderId:order.id,
                                 currency: order.quote?.price?.currency ?? 'INR',
                                 value:parseFloat(order.quote?.price?.value ?? '0'),
-                                bff:parseFloat(order.settlementDetails?.['@ondc/org/buyer_app_finder_fee_amount'] ?? '0'),
+                                bff:parseFloat(order.settlementDetails?.['@ondc/org/buyer_app_finder_fee_amount'] ?? '0')*parseFloat(order.quote?.price?.value ?? '0')/100,
                                 collectedBy:order.settlementDetails?.['@ondc/org/settlement_details'][0].settlement_counterparty ?? 'NA',
                                 paymentType:order.payment?.type  ?? 'NA',
                                 state:order.state ?? 'NA',
@@ -225,8 +283,31 @@ class AuthenticationService {
                                 ProviderId: provider.id,
                                 city:city,
                                 areaCode:areaCode,
-                                domain:order.domain
+                                domain:order.domain,
+                                paymentStatus:order.payment?.status,
+                                settlement:order.settlementDetails,
+                                finalValue:parseFloat(order.quote?.price?.value ?? '0')
                             }).save({transaction})
+
+                            for(let fulfillment of order.fulfillments){
+
+                                let fl = await new Fulfillment({
+                                    fulfillmentId:fulfillment.id,
+                                    fulfillmentState:fulfillment.state.descriptor.code,
+                                    fulfillmentType:fulfillment.type,
+                                    details:fulfillment,
+                                    OrderId:savedOrder.id
+                                }).save({transaction});
+                            }
+                            for(let item of order.items){
+                                let itm = await new Item({
+                                    itemId:item.id,
+                                    fulfillmentId:item.fulfillment_id,
+                                    quantity:item.quantity.count,
+                                    itemName:item.product.descriptor.name,
+                                    OrderId:savedOrder.id
+                                }).save({transaction});
+                            }
 
                           await  transaction.commit()
                         }

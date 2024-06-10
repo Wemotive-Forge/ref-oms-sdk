@@ -19,6 +19,10 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.FLOAT,
             allowNull: false,
         },
+        finalValue: {
+            type: DataTypes.FLOAT,
+            allowNull: false,
+        },
         bff: {
             type: DataTypes.FLOAT,
             allowNull: false,
@@ -30,6 +34,9 @@ module.exports = (sequelize, DataTypes) => {
         paymentType: {
             type: DataTypes.STRING,
             allowNull: false,
+        },
+        paymentStatus: {
+            type: DataTypes.STRING,
         },
         state: {
             type: DataTypes.ENUM,
@@ -44,6 +51,18 @@ module.exports = (sequelize, DataTypes) => {
         },
         domain: {
             type: DataTypes.STRING,
+        },
+        category: {
+            type: DataTypes.STRING,
+        },
+        cancelledBy: {
+            type: DataTypes.STRING,
+        },
+        cancelReasonCode: {
+            type: DataTypes.STRING,
+        },
+        settlement: {
+            type: DataTypes.JSONB,
         },
         // sellerId: {
         //     type: DataTypes.UUID,
@@ -71,6 +90,8 @@ module.exports = (sequelize, DataTypes) => {
         Order.belongsTo(models.Provider, { onDelete: 'CASCADE' });
         Order.hasMany(models.Issue, { onDelete: 'CASCADE' });
         Order.hasMany(models.Return, {  onDelete: 'CASCADE' });
+        Order.hasMany(models.Fulfillment, {  onDelete: 'CASCADE' });
+        Order.hasMany(models.Item, {  onDelete: 'CASCADE' });
         Order.hasOne(models.SettlementDetails);
     };
 
