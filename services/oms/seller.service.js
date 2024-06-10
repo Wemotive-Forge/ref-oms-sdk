@@ -103,11 +103,20 @@ class SellerService {
           where: query,
           attributes: [
             'state',
-            [sequelize.fn('COUNT', sequelize.col('state')), 'count']
+            [sequelize.fn('COUNT', sequelize.col('state')), 'count'],
           ],
           group: ['state']
         })
+
+        const totalCounts = await Order.findAll({
+          where: query,
+          attributes: [
+            [sequelize.fn('SUM', sequelize.col('value')), 'value']
+          ],
+        })
+
         seller.stats = stateCounts
+        seller.total = totalCounts[0].value
         salesReport.push(seller)
       }
       sellers.rows = salesReport;
