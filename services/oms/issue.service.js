@@ -110,33 +110,36 @@ class IssueService {
         }
       }
 
-      const issues = await Issue.findAll({
-        where: whereCondition,
-        transaction
-      });
+      const issues = await Issue.findAll({ where: whereCondition, transaction });
 
       const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet('Issues');
+      // Helper function to set columns and add rows
+      function addSheetData(sheet, columns, data, rowFormatter) {
+        sheet.columns = columns;
+        sheet.getRow(1).font = { bold: true };
 
-      // Define the columns
-      worksheet.columns = [
-        { header: 'Category', key: 'category', width: 20 },
-        { header: 'IssueId', key: 'issueId', width: 20 },
-        { header: 'Subcategory', key: 'subCategory', width: 20 },
-        { header: 'Issue Status', key: 'issueStatus', width: 20 },
-        { header: 'Order ID', key: 'orderId', width: 20 }
-      ];
-
-      // Add data to the worksheet
-      issues.forEach(issue => {
-        worksheet.addRow({
-          category: issue.category,
-          issueId: issue.issueId,
-          subCategory: issue.subCategory,
-          issueStatus: issue.issueStatus,
-          orderId: issue.orderId
+        data.forEach(item => {
+          sheet.addRow(rowFormatter(item));
         });
-      });
+      }
+        // Define columns for each sheet
+        const issueColumns = [
+          { header: 'ID', key: 'id', width: 20 },
+          { header: 'Issue Id', key: 'issueId', width: 20 },
+          { header: 'Category', key: 'category', width: 20 },
+          { header: 'Sub Category', key: 'subCategory', width: 20 },
+          { header: 'Issue Status', key: 'issueStatus', width: 20 },
+        ];
+
+      // Add Issue sheet
+      const issueheet = workbook.addWorksheet('Issues');
+      addSheetData(issueheet, issueColumns, issues, (issue) => ({
+        id: issue.id,
+        issueId: issue.issueId,
+        category: issue.category,
+        subCategory: issue.subCategory,
+        issueStatus: issue.issueStatus,
+      }));
 
       // Save the workbook
       await workbook.xlsx.writeFile(filePath);

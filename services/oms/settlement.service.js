@@ -111,31 +111,41 @@ class SettlementDetailsService {
           throw new BadRequestParameterError(MESSAGES.INVALID_DATE);
         }
       }
-      const settlementDetails = await SettlementDetails.findAll({
-        where: whereCondition,
-        transaction
-      });
+      const settlementDetails = await SettlementDetails.findAll({ where: whereCondition, transaction });
 
       const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet('SettlementDetails');
+      // Helper function to set columns and add rows
+      function addSheetData(sheet, columns, data, rowFormatter) {
+        sheet.columns = columns;
+        sheet.getRow(1).font = { bold: true };
 
-      // Define the columns
-      worksheet.columns = [
+        data.forEach(item => {
+          sheet.addRow(rowFormatter(item));
+        });
+      }
+
+      // Define columns for each sheet
+      const settlementColumns = [
+        { header: 'ID', key: 'id', width: 20 },
         { header: 'Settlement Type', key: 'settlementType', width: 20 },
-        { header: 'Account No', key: 'accountNo', width: 20 },
         { header: 'Bank Name', key: 'bankName', width: 20 },
-        { header: 'Branch Name', key: 'branchName', width: 20 }
+        { header: 'Branch Name', key: 'branchName', width: 20 },
+        { header: 'UPI', key: 'UPI', width: 20 },
+        { header: 'Settlement Bank Ac Number', key: 'settlement_bank_account_no', width: 20 },
+        { header: 'Beneficiary Name', key: 'beneficiary_name', width: 20 },
       ];
 
-      // Add data to the worksheet
-      settlementDetails.forEach(details => {
-        worksheet.addRow({
-          settlementType: details.settlementType,
-          accountNo: details.accountNo,
-          bankName: details.bankName,
-          branchName: details.branchName
-        });
-      });
+      //Add Settlement Sheet
+      const settlementSheet = workbook.addWorksheet('SettlementDetails')
+      addSheetData(settlementSheet, settlementColumns, settlementDetails, (settlement) => ({
+        id: settlement.id,
+        settlementType: settlement.settlementType,
+        bankName: settlement.bankName,
+        branchName: settlement.branchName,
+        UPI: settlement.UPI,
+        settlement_bank_account_no: settlement.settlement_bank_account_no,
+        beneficiary_name: settlement.beneficiary_name,
+    }));
 
       // Save the workbook
       await workbook.xlsx.writeFile(filePath);

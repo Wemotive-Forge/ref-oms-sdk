@@ -339,31 +339,37 @@ class SellerService {
           throw new BadRequestParameterError(MESSAGES.INVALID_DATE);
         }
       }
-      const sellers = await Seller.findAll({
-        where: whereCondition,
-        transaction
-      });
+      const sellers = await Seller.findAll({ where: whereCondition, transaction });
 
       const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet('Sellers');
 
-      // Define the columns
-      worksheet.columns = [
+      // Helper function to set columns and add rows
+      function addSheetData(sheet, columns, data, rowFormatter) {
+        sheet.columns = columns;
+        sheet.getRow(1).font = { bold: true };
+
+        data.forEach(item => {
+          sheet.addRow(rowFormatter(item));
+        });
+      }
+
+      const sellerColumns = [
+        { header: 'Seller ID', key: 'id', width: 20 },
         { header: 'GST', key: 'gst', width: 20 },
         { header: 'PAN', key: 'pan', width: 20 },
-        { header: 'BPP ID', key: 'bppId', width: 20 },
-        { header: 'Name', key: 'name', width: 20 }
-      ];
-
-      // Add data to the worksheet
-      sellers.forEach(seller => {
-        worksheet.addRow({
-          gst: seller.gst,
-          pan: seller.pan,
-          bppId: seller.bpp_id,
-          name: seller.name
-        });
-      });
+        { header: 'BPP ID', key: 'bpp_id', width: 20 },
+        { header: 'Name', key: 'name', width: 20 },
+    ];
+    
+      // Add Sellers sheet
+      const sellerSheet = workbook.addWorksheet('Sellers');
+      addSheetData(sellerSheet, sellerColumns, sellers, (seller) => ({
+        id: seller.id,
+        gst: seller.gst,
+        pan: seller.pan,
+        bpp_id: seller.bpp_id,
+        name: seller.name,
+      }));
 
       // Save the workbook
       await workbook.xlsx.writeFile(filePath);

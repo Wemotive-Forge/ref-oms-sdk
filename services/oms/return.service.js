@@ -1,5 +1,5 @@
 // services/return.service.js
-import { Return, Order } from '../../models';
+import { Return, Order , sequelize} from '../../models';
 import { Op } from 'sequelize';
 import ExcelJS from 'exceljs';
 import moment from 'moment';
@@ -106,31 +106,36 @@ class ReturnService {
           throw new BadRequestParameterError(MESSAGES.INVALID_DATE);
         }
       }
-      const returns = await Return.findAll({
-        where: whereCondition,
-        transaction
-      });
+      const returns = await Return.findAll({ where: whereCondition, transaction });
 
       const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet('Returns');
+      // Helper function to set columns and add rows
+      function addSheetData(sheet, columns, data, rowFormatter) {
+        sheet.columns = columns;
+        sheet.getRow(1).font = { bold: true };
 
-      // Define the columns
-      worksheet.columns = [
+        data.forEach(item => {
+          sheet.addRow(rowFormatter(item));
+        });
+      }
+
+      const returnColumn = [
+        { header: 'ID', key: 'id', width:20 },
         { header: 'Return ID', key: 'returnId', width: 20 },
         { header: 'Amount', key: 'amount', width: 20 },
         { header: 'Reason', key: 'reason', width: 20 },
-        { header: 'Order ID', key: 'orderId', width: 20 }
-      ];
+        { header: 'Order ID', key: 'OrderId', width: 20 }
+      ]
 
-      // Add data to the worksheet
-      returns.forEach(returnData => {
-        worksheet.addRow({
-          returnId: returnData.returnId,
-          amount: returnData.amount,
-          reason: returnData.reason,
-          orderId: returnData.orderId
-        });
-      });
+      // Add Return sheet
+      const returnSheet = workbook.addWorksheet('Returns');
+      addSheetData(returnSheet, returnColumn, returns, (ret) => ({
+        id: ret.id,
+        returnId:ret.returnId,
+        amount:ret.amount,
+        reason:ret.reason,
+        OrderId:ret.OrderId
+      }));
 
       // Save the workbook
       await workbook.xlsx.writeFile(filePath);
