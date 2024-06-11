@@ -137,6 +137,9 @@ class IssueService {
           { header: 'Category', key: 'category', width: 20 },
           { header: 'Sub Category', key: 'subCategory', width: 20 },
           { header: 'Issue Status', key: 'issueStatus', width: 20 },
+          { header: 'Complaint', key: 'compalinant', width: 20 },
+          { header: 'Respondent', key: 'respondent', width: 20},
+          { header: 'Order Id', key: 'OrderId', width: 20},
         ];
 
       // Add Issue sheet
@@ -147,6 +150,9 @@ class IssueService {
         category: issue.category,
         subCategory: issue.subCategory,
         issueStatus: issue.issueStatus,
+        OrderId: issue.OrderId,
+        complainant: issue.complainant,
+        respondent: issue.respondent
       }));
 
       // Save the workbook
@@ -155,7 +161,7 @@ class IssueService {
       console.log(`Excel file saved to ${filePath}`);
     } catch (err) {
       if (transaction) await transaction.rollback();
-      throw new Error('Error exporting to Excel');
+      throw new Error(err);
     }
   };
 }
