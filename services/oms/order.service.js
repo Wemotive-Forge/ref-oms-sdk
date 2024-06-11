@@ -1,5 +1,5 @@
 // services/order.service.js
-import { Order, Seller, sequelize } from '../../models';
+import { Order, Seller, sequelize, Item, Fulfillment } from '../../models';
 import { Op } from 'sequelize';
 import ExcelJS from 'exceljs';
 import moment from 'moment';
@@ -148,34 +148,137 @@ class OrderService {
         }
       }
 
-      const orders = await Order.findAll({
-        where: whereCondition,
-        transaction
-      });
+      const orders = await Order.findAll({ where: whereCondition, transaction });
+      const sellers = await Seller.findAll({ where: whereCondition, transaction });
+      const items = await Item.findAll({ where: whereCondition, transaction });
+      const fulfillments = await Fulfillment.findAll({ where: whereCondition, transaction });
 
       const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet('Orders');
+      // Helper function to set columns and add rows
+      function addSheetData(sheet, columns, data, rowFormatter) {
+        sheet.columns = columns;
+        sheet.getRow(1).font = { bold: true };
 
-      // Define the columns
-      worksheet.columns = [
-        { header: 'Order ID', key: 'orderId', width: 20 },
-        { header: 'Currency', key: 'currency', width: 20 },
-        { header: 'Value', key: 'value', width: 20 },
-        { header: 'BFF', key: 'bff', width: 20 },
-        { header: 'Collected By', key: 'collectedBy', width: 20 },
-        { header: 'Payment Type', key: 'paymentType', width: 20 }
+        data.forEach(item => {
+          sheet.addRow(rowFormatter(item));
+        });
+      }
+        // Define columns for each sheet
+        const orderColumns = [
+          { header: 'ID', key: 'id', width: 20 },
+          { header: 'Order ID', key: 'orderId', width: 20 },
+          { header: 'Currency', key: 'currency', width: 20 },
+          { header: 'Value', key: 'value', width: 20 },
+          { header: 'Final Value', key: 'finalValue', width: 20 },
+          { header: 'BFF', key: 'bff', width: 20 },
+          { header: 'Collected By', key: 'collectedBy', width: 20 },
+          { header: 'Payment Type', key: 'paymentType', width: 20 },
+          { header: 'Payment Status', key: 'paymentStatus', width: 20 },
+          { header: 'State', key: 'state', width: 20 },
+          { header: 'City', key: 'city', width: 20 },
+          { header: 'Area Code', key: 'areaCode', width: 20 },
+          { header: 'Domain', key: 'domain', width: 20 },
+          { header: 'Category', key: 'category', width: 20 },
+          { header: 'Cancelled By', key: 'cancelledBy', width: 20 },
+          { header: 'Cancel Reason Code', key: 'cancelReasonCode', width: 20 },
+          { header: 'Settlement', key: 'settlement', width: 40 },
+          { header: 'Seller Id', key: 'SellerId', width: 20 },
       ];
 
-      // Add data to the worksheet
-      orders.forEach(order => {
-        worksheet.addRow({
-          orderId: order.orderId,
-          currency: order.currency,
-          value: order.value,
-          bff: order.bff,
-          collectedBy: order.collectedBy,
-          paymentType: order.paymentType
-        });
+      const sellerColumns = [
+          { header: 'Seller ID', key: 'id', width: 20 },
+          { header: 'GST', key: 'gst', width: 20 },
+          { header: 'PAN', key: 'pan', width: 20 },
+          { header: 'BPP ID', key: 'bpp_id', width: 20 },
+          { header: 'Name', key: 'name', width: 20 },
+      ];
+
+      const itemColumns = [
+          { header: 'ID', key: 'id', width: 20 },
+          { header: 'Item ID', key: 'itemId', width: 20 },
+          { header: 'Fulfillment ID', key: 'fulfillmentId', width: 20 },
+          { header: 'Item Name', key: 'itemName', width: 20 },
+          { header: 'Quantity', key: 'quantity', width: 20 },
+          { header: 'Order Id', key: 'OrderId', width: 20 },
+      ];
+
+      const fulfillmentColumns = [
+          { header: 'ID', key: 'id', width: 20 },
+          { header: 'Fulfillment ID', key: 'fulfillmentId', width: 20 },
+          { header: 'Fulfillment Type', key: 'fulfillmentType', width: 20 },
+          { header: 'Fulfillment State', key: 'fulfillmentState', width: 20 },
+          { header: 'Refund', key: 'refund', width: 20 },
+          { header: 'Details', key: 'details', width: 20 },
+          { header: 'Order Id', key: 'OrderId', width: 20 },
+      ];
+
+      // Add Orders sheet
+      const orderSheet = workbook.addWorksheet('Orders');
+      addSheetData(orderSheet, orderColumns, orders, (order) => {
+          let settlementString = '';
+          if (order.settlement) {
+              settlementString = jsonToPlainString(order.settlement);
+          }
+          return {
+              id: order.id,
+              orderId: order.orderId,
+              currency: order.currency,
+              value: order.value,
+              finalValue: order.finalValue,
+              bff: order.bff,
+              collectedBy: order.collectedBy,
+              paymentType: order.paymentType,
+              paymentStatus: order.paymentStatus,
+              state: order.state,
+              city: order.city,
+              areaCode: order.areaCode,
+              domain: order.domain,
+              category: order.category,
+              cancelledBy: order.cancelledBy,
+              cancelReasonCode: order.cancelReasonCode,
+              settlement: settlementString,
+              SellerId: order.SellerId,
+          };
+      });
+
+      // Add Sellers sheet
+      const sellerSheet = workbook.addWorksheet('Sellers');
+      addSheetData(sellerSheet, sellerColumns, sellers, (seller) => ({
+          id: seller.id,
+          gst: seller.gst,
+          pan: seller.pan,
+          bpp_id: seller.bpp_id,
+          name: seller.name,
+      }));
+
+      // Add Items sheet
+      const itemSheet = workbook.addWorksheet('Items');
+      addSheetData(itemSheet, itemColumns, items, (item) => ({
+          id: item.id,
+          itemId: item.itemId,
+          fulfillmentId: item.fulfillmentId,
+          itemName: item.itemName,
+          quantity: item.quantity,
+          OrderId: item.OrderId,
+      }));
+
+      // Add Fulfillments sheet
+      const fulfillmentSheet = workbook.addWorksheet('Fulfillments');
+      // Add data and format JSONB columns for Fulfillments sheet
+      addSheetData(fulfillmentSheet, fulfillmentColumns, fulfillments, fulfillment => {
+        let detailsString = '';
+        if (fulfillment.details) {
+          detailsString = jsonToPlainString(fulfillment.details);
+        }
+        return {
+          id: fulfillment.id,
+          fulfillmentId: fulfillment.fulfillmentId,
+          fulfillmentType: fulfillment.fulfillmentType,
+          fulfillmentState: fulfillment.fulfillmentState,
+          refund: fulfillment.refund,
+          details: detailsString,
+          OrderId: fulfillment.OrderId,
+        };
       });
 
       // Save the workbook
@@ -189,5 +292,31 @@ class OrderService {
     }
   };
 }
+function jsonToPlainString(jsonObj) {
+  const result = [];
+  const prefixesToRemove = ['@ondc/org/settlement_details_0_', '@ondc/org/buyer_app_']; // specify the prefixes to remove
+
+  function traverse(obj, path) {
+      for (let key in obj) {
+          const value = obj[key];
+          let newPath = path ? `${path}_${key}` : key;
+
+          // Remove all specified prefixes from the newPath
+          prefixesToRemove.forEach(prefix => {
+              newPath = newPath.replace(prefix, '');
+          });
+
+          if (typeof value === 'object' && value !== null) {
+              traverse(value, newPath);
+          } else {
+              result.push(`"${newPath}"-"${value}"`);
+          }
+      }
+  }
+
+  traverse(jsonObj, '');
+  return result.join(', ');
+}
+
 
 module.exports = new OrderService();
