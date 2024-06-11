@@ -148,10 +148,15 @@ class OrderService {
         }
       }
 
-      const orders = await Order.findAll({ where: whereCondition, transaction });
-      const sellers = await Seller.findAll({ where: whereCondition, transaction });
-      const items = await Item.findAll({ where: whereCondition, transaction });
-      const fulfillments = await Fulfillment.findAll({ where: whereCondition, transaction });
+        const orders = await Order.findAll({
+            where: whereCondition,
+            include: [
+                { model: Seller, required: true },
+                { model: Item, required: true },
+                { model: Fulfillment, required: true }
+            ],
+            transaction
+        });
 
       const workbook = new ExcelJS.Workbook();
       // Helper function to set columns and add rows
@@ -241,45 +246,69 @@ class OrderService {
           };
       });
 
-      // Add Sellers sheet
-      const sellerSheet = workbook.addWorksheet('Sellers');
-      addSheetData(sellerSheet, sellerColumns, sellers, (seller) => ({
-          id: seller.id,
-          gst: seller.gst,
-          pan: seller.pan,
-          bpp_id: seller.bpp_id,
-          name: seller.name,
-      }));
+      // Extract unique sellers, items, and fulfillments
+      const uniqueSellers = [];
+      const uniqueItems = [];
+      const uniqueFulfillments = [];
 
-      // Add Items sheet
-      const itemSheet = workbook.addWorksheet('Items');
-      addSheetData(itemSheet, itemColumns, items, (item) => ({
-          id: item.id,
-          itemId: item.itemId,
-          fulfillmentId: item.fulfillmentId,
-          itemName: item.itemName,
-          quantity: item.quantity,
-          OrderId: item.OrderId,
-      }));
-
-      // Add Fulfillments sheet
-      const fulfillmentSheet = workbook.addWorksheet('Fulfillments');
-      // Add data and format JSONB columns for Fulfillments sheet
-      addSheetData(fulfillmentSheet, fulfillmentColumns, fulfillments, fulfillment => {
-        let detailsString = '';
-        if (fulfillment.details) {
-          detailsString = jsonToPlainString(fulfillment.details);
+      orders.forEach(order => {
+        if (order.Seller && !uniqueSellers.find(seller => seller.id === order.Seller.id)) {
+          uniqueSellers.push(order.Seller);
         }
-        return {
-          id: fulfillment.id,
-          fulfillmentId: fulfillment.fulfillmentId,
-          fulfillmentType: fulfillment.fulfillmentType,
-          fulfillmentState: fulfillment.fulfillmentState,
-          refund: fulfillment.refund,
-          details: detailsString,
-          OrderId: fulfillment.OrderId,
-        };
+        order.Items.forEach(item => {
+          if (!uniqueItems.find(i => i.id === item.id)) {
+            uniqueItems.push(item);
+          }
+        });
+        order.Fulfillments.forEach(fulfillment => {
+          if (!uniqueFulfillments.find(f => f.id === fulfillment.id)) {
+            uniqueFulfillments.push(fulfillment);
+          }
+        });
       });
+
+      // console.log("SELLERS", uniqueSellers);
+      // console.log("ITEMS", uniqueItems);
+      // console.log("FULLFILLMENTS", uniqueFulfillments);
+
+        // Add Sellers sheet
+        const sellerSheet = workbook.addWorksheet('Sellers');
+        addSheetData(sellerSheet, sellerColumns, uniqueSellers, (seller) => ({
+            id: seller.id,
+            gst: seller.gst,
+            pan: seller.pan,
+            bpp_id: seller.bpp_id,
+            name: seller.name,
+        }));
+
+        // Add Items sheet
+        const itemSheet = workbook.addWorksheet('Items');
+        addSheetData(itemSheet, itemColumns, uniqueItems, (item) => ({
+            id: item.id,
+            itemId: item.itemId,
+            fulfillmentId: item.fulfillmentId,
+            itemName: item.itemName,
+            quantity: item.quantity,
+            OrderId: item.OrderId,
+        }));
+
+        // Add Fulfillments sheet
+        const fulfillmentSheet = workbook.addWorksheet('Fulfillments');
+        addSheetData(fulfillmentSheet, fulfillmentColumns, uniqueFulfillments, fulfillment => {
+            let detailsString = '';
+            if (fulfillment.details) {
+                detailsString = jsonToPlainString(fulfillment.details);
+            }
+            return {
+                id: fulfillment.id,
+                fulfillmentId: fulfillment.fulfillmentId,
+                fulfillmentType: fulfillment.fulfillmentType,
+                fulfillmentState: fulfillment.fulfillmentState,
+                refund: fulfillment.refund,
+                details: detailsString,
+                OrderId: fulfillment.OrderId,
+            };
+        });
 
       // Save the workbook
       await workbook.xlsx.writeFile(filePath);
