@@ -1,6 +1,7 @@
 // controllers/issue.controller.js
 import { issueService } from "../services/oms";
 import fs from 'fs';
+import { getDateRange } from "../utils/utilityFunctions";
 
 class IssueController {
 
@@ -17,7 +18,11 @@ class IssueController {
 
   async getAllIssues(req, res) {
     try {
-      const issues = await issueService.getAllIssues(req.query);
+      let dateRangeValues
+      if (req.query.dateRange) {
+        dateRangeValues = await getDateRange(req.query.dateRange);
+      }
+      const issues = await issueService.getAllIssues(req.query,dateRangeValues);
       res.json(issues);
     } catch (err) {
       console.error('Error getting issues', err);

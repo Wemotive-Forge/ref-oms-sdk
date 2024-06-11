@@ -21,7 +21,7 @@ class IssueService {
     }
   };
 
-  async getAllIssues(data) {
+  async getAllIssues(data,dateRangeValues) {
     try {
       // Build the where condition for category and subCategory filters
       const whereCondition = {};
@@ -58,12 +58,20 @@ class IssueService {
         }
       }
 
+      if(dateRangeValues){
+        console.log({dateRangeValues})
+        console.log(dateRangeValues.startDate)
+        console.log(dateRangeValues.endDate)
+        whereCondition.createdAt = {
+          [Op.between]: [dateRangeValues.startDate, dateRangeValues.endDate]
+        }
+      }
+
       const issues = await Issue.findAndCountAll({
         where: whereCondition,
         include: [
           {
             model: Order,
-            where: { SellerId: data.SellerId },
           },
         ],  
         offset: data.offset,

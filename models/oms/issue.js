@@ -22,16 +22,12 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING,
             allowNull: false,
         },
-        // createdAt: {
-        //     type: DataTypes.BIGINT,
-        //     allowNull: false,
-        //     defaultValue: sequelize.literal('extract(epoch from now()) * 1000'),
-        // },
-        // updatedAt: {
-        //     type: DataTypes.BIGINT,
-        //     allowNull: false,
-        //     defaultValue: sequelize.literal('extract(epoch from now()) * 1000'),
-        // },
+        complainant: {
+            type: DataTypes.STRING,
+        },
+        respondent: {
+            type: DataTypes.STRING,
+        }
     }, {
         freezeTableName: true,
         timestamps: true,

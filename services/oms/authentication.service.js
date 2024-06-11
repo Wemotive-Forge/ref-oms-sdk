@@ -1,5 +1,5 @@
 import { JsonWebToken, Token } from '../../lib/authentication';
-import { Otp, Role, Sequelize,sequelize,SettlementDetails,Fulfillment,Item, User,  Provider,UserRole,Order,Seller} from '../../models';
+import { Otp, Role, Sequelize,sequelize,SettlementDetails,Fulfillment,Item, User, Issue,Provider,UserRole,Order,Seller} from '../../models';
 import BadRequestParameterError from '../../lib/errors/bad-request-parameter.error';
 import Mailer from '../../lib/mailer';
 import UnauthenticatedError from "../../lib/errors/unauthenticated.error";
@@ -263,6 +263,38 @@ class AuthenticationService {
 
                             }
 
+                            for(let issue of order.issues){
+
+                                let oldSavedIssue = await Issue.findOne({where:{
+                                        issueId:issue.issueId,
+                                        OrderId:orderObj.id
+                                    }});
+
+                                if(oldSavedIssue){
+                                    let itm = await Issue.update({
+                                        issueId:issue.issueId,
+                                        OrderId:orderObj.id,
+                                        category:issue.category,
+                                        subCategory:issue.sub_category,
+                                        complainant:issue?.complainant_info?.person?.name??"NA",
+                                        issueStatus:issue.issue_status,
+                                        // respondent: TODO: to be discussed
+                                        createdAt:issue.createdAt
+                                    },{where:{OrderId:orderObj.id,  issueId:issue.issueId}},{transaction})
+                                }else{
+                                    let itm = await new Issue({
+                                        issueId:issue.issueId,
+                                        OrderId:orderObj.id,
+                                        category:issue.category,
+                                        subCategory:issue.sub_category,
+                                        complainant:issue?.complainant_info?.person?.name??"NA",
+                                        issueStatus:issue.issue_status,
+                                        createdAt:issue.createdAt
+                                    }).save({transaction});
+                                }
+
+                            }
+
                         }else{
                             //create
                             //TODO: @ondc/org/buyer_app_finder_fee_type
@@ -306,14 +338,80 @@ class AuthenticationService {
                                     quantity:item.quantity.count,
                                     itemName:item.product.descriptor.name,
                                     OrderId:savedOrder.id
+
                                 }).save({transaction});
                             }
 
-                          await  transaction.commit()
+
+                            for(let issue of order.issues){
+
+                                let oldSavedIssue = await Issue.findOne({where:{
+                                        issueId:issue.issueId,
+                                        OrderId:savedOrder.id
+                                    }});
+
+                                if(oldSavedIssue){
+                                    let itm = await Issue.update({
+                                        issueId:issue.issueId,
+                                        OrderId:savedOrder.id,
+                                        category:issue.category,
+                                        subCategory:issue.sub_category,
+                                        complainant:issue?.complainant_info?.person?.name??"NA",
+                                        issueStatus:issue.issue_status,
+                                        createdAt:issue.createdAt
+                                        // respondent: TODO: to be discussed
+
+                                    },{where:{OrderId:savedOrder.id,  issueId:issue.issueId}},{transaction})
+                                }else{
+                                    let itm = await new Issue({
+                                        issueId:issue.issueId,
+                                        OrderId:savedOrder.id,
+                                        category:issue.category,
+                                        subCategory:issue.sub_category,
+                                        complainant:issue?.complainant_info?.person?.name??"NA",
+                                        issueStatus:issue.issue_status,
+                                        createdAt:issue.createdAt
+
+                                    }).save({transaction});
+                                }
+
+                            }
+
+                            for(let item of order.items){
+
+                                let oldSavedItems = await Item.findOne({where:{
+                                        itemId:item.id,
+                                        fulfillmentId:item.fulfillment_id,
+                                        OrderId:savedOrder.id
+                                    }})
+                                if(oldSavedItems){
+                                    let itm = await Item.update({
+                                        itemId:item.id,
+                                        fulfillmentId:item.fulfillment_id,
+                                        quantity:item.quantity.count,
+                                        itemName:item.product.descriptor.name,
+                                        OrderId:savedOrder.id
+                                    },{where:{OrderId:savedOrder.id, itemId:item.id,fulfillmentId:item.fulfillment_id}},{transaction})
+                                }else{
+                                    let itm = await new Item({
+                                        itemId:item.id,
+                                        fulfillmentId:item.fulfillment_id,
+                                        quantity:item.quantity.count,
+                                        itemName:item.product.descriptor.name,
+                                        OrderId:savedOrder.id
+                                    }).save({transaction});
+                                }
+
+                            }
+
+
+                            await  transaction.commit()
                         }
 
 
+
                     } catch (err) {
+                        await transaction.rollback();
                         throw err
                     }
                 }
