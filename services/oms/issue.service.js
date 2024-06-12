@@ -164,6 +164,62 @@ class IssueService {
       throw new Error(err);
     }
   };
+
+
+  async getIssueReport({ limit, offset, dateRangeValues }) {
+    try {
+      const sellers = await Seller.findAndCountAll({
+        offset: offset,
+        limit: limit,
+        order: [['createdAt', 'DESC']],
+        raw: true
+      });
+
+      let salesReport = []
+      for (let seller of sellers.rows) {
+        let query = {}
+        if (dateRangeValues) {
+          query = {
+            createdAt: {
+              [Op.between]: [dateRangeValues.startDate, dateRangeValues.endDate]
+            }
+            ,SellerId:seller.id
+          }
+        }else{
+                  query = {
+                    SellerId:seller.id
+                  }
+        }
+
+        const stateCounts = await Issue.findAll({
+          where: query,
+          attributes: [
+            'state',
+            [sequelize.fn('COUNT', sequelize.col('state')), 'count'],
+          ],
+          group: ['state']
+        })
+
+        const totalCounts = await Issue.findAll({
+          where: query,
+          attributes: [
+            [sequelize.fn('SUM', sequelize.col('value')), 'value']
+          ],
+        })
+
+        seller.stats = stateCounts
+        seller.total = totalCounts[0].value
+        salesReport.push(seller)
+      }
+      sellers.rows = salesReport;
+      console.log(sellers)
+      return sellers;
+    } catch (err) {
+      console.error('Error fetching sales report:', err);
+      throw new Error('Error fetching sales report');
+    }
+  };
+
 }
 
 module.exports = new IssueService();

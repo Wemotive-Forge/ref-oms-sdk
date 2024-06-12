@@ -1,7 +1,7 @@
 // services/seller.service.js
 import { Op } from 'sequelize';
 import ExcelJS from 'exceljs';
-import { Seller, Order, sequelize } from '../../models';
+import { Seller, Order, Issue,sequelize } from '../../models';
 import moment from 'moment';
 import MESSAGES from '../../utils/messages';
 import { BadRequestParameterError } from '../../lib/errors/errors';
@@ -134,33 +134,108 @@ class SellerService {
     }
   };
 
-  async getFinanceReport({ limit, offset, dateRangeValues }) {
+  async getIssueReport({ limit, offset, dateRangeValues }) {
     try {
+      const sellers = await Seller.findAndCountAll({
+        offset: offset,
+        limit: limit,
+        order: [['createdAt', 'DESC']],
+        raw: true
+      });
 
+      let salesReport = []
+      for (let seller of sellers.rows) {
         let query = {}
         if (dateRangeValues) {
           query = {
             createdAt: {
               [Op.between]: [dateRangeValues.startDate, dateRangeValues.endDate]
-            }
+            },
+//            ,SellerId:seller.id
+
           }
+        }else{
+                  query = {
+//                    SellerId:seller.id
+
+                  }
         }
 
-        const stateCounts = await Order.findAll({
+        const stateCounts = await Issue.findAll({
           where: query,
           attributes: [
-            [sequelize.fn('SUM', sequelize.col('value')), 'value'],
-            [sequelize.fn('SUM', sequelize.col('finalValue')), 'finalValue'],
-            [sequelize.fn('SUM', sequelize.col('bff')), 'bff']
+            'issueStatus',
+            [sequelize.fn('COUNT', sequelize.col('issueStatus')), 'count'],
           ],
-          include:[{model:Seller}]
-        })
+          include: [
+            {
+              model: Order,
+              where: { SellerId: seller.id },
+              attributes: [] // Exclude Order attributes from the final result
+            }
+          ],
+          group: ['issueStatus']
+        });
+        seller.stats = stateCounts
+        salesReport.push(seller)
+      }
+      sellers.rows = salesReport;
 
-      return stateCounts;
+      console.log(sellers)
+      return sellers;
     } catch (err) {
       console.error('Error fetching sales report:', err);
       throw new Error('Error fetching sales report');
     }
+  };
+
+  async getFinanceReport({ limit, offset, dateRangeValues }) {
+       try {
+         const sellers = await Seller.findAndCountAll({
+           offset: offset,
+           limit: limit,
+           order: [['createdAt', 'DESC']],
+           raw: true
+         });
+
+         let salesReport = []
+         for (let seller of sellers.rows) {
+           let query = {}
+           if (dateRangeValues) {
+             query = {
+               createdAt: {
+                 [Op.between]: [dateRangeValues.startDate, dateRangeValues.endDate]
+               },
+               SellerId:seller.id
+
+             }
+           }else{
+                     query = {
+                       SellerId:seller.id
+
+                     }
+           }
+
+           const stateCounts = await Order.findAll({
+             where: query,
+             attributes: [
+               [sequelize.fn('SUM', sequelize.col('value')), 'value'],
+               [sequelize.fn('SUM', sequelize.col('bff')), 'bff'],
+               [sequelize.fn('SUM', sequelize.col('finalValue')), 'finalValue'],
+             ]
+
+           });
+           seller.stats = stateCounts
+           salesReport.push(seller)
+         }
+         sellers.rows = salesReport;
+
+         console.log(sellers)
+         return sellers;
+       } catch (err) {
+         console.error('Error fetching sales report:', err);
+         throw new Error('Error fetching sales report');
+       }
   };
 
   async getSalesReportTrend({ limit, offset, dateRangeValues, interval }) {

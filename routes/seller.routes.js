@@ -9,6 +9,9 @@ router.get('/sellers/financeReport', sellerController.getFinanceReport);
 router.get('/sellers/salesReportTrend', sellerController.getSalesReportTrend);
 router.get('/sellers/accountPayableReport', sellerController.getAccountPayableReport);
 router.get('/sellers/accountCollectedReport', sellerController.getAccountCollectedReport);
+
+router.get('/sellers/issueReport', sellerController.getIssueReport);
+
 router.post('/sellers', sellerController.createSeller);
 router.get('/sellers', sellerController.getAllSellers);
 router.get('/sellers/:id', sellerController.getSellerById);
