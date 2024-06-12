@@ -67,6 +67,22 @@ class SellerController {
     }
   };
 
+  async getIssueReportCount(req, res) {
+    try {
+      const { limit, offset, dateRange } = req.query;
+
+      let dateRangeValues
+      if (dateRange) {
+        dateRangeValues = await getDateRange(dateRange);
+      }
+      const salesReport = await sellerService.getIssueReportCount({ limit, offset, dateRangeValues });
+      res.json(salesReport);
+    } catch (error) {
+      console.error('Error fetching sales report:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  };
+
   async getFinanceReport(req, res) {
     try {
       const { limit, offset, dateRange } = req.query;
@@ -76,6 +92,22 @@ class SellerController {
         dateRangeValues = await getDateRange(dateRange);
       }
       const salesReport = await sellerService.getFinanceReport({ limit, offset, dateRangeValues });
+      res.json(salesReport);
+    } catch (error) {
+      console.error('Error fetching sales report:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  };
+
+  async getFinanceReportCount(req, res) {
+    try {
+      const { limit, offset, dateRange } = req.query;
+
+      let dateRangeValues
+      if (dateRange) {
+        dateRangeValues = await getDateRange(dateRange);
+      }
+      const salesReport = await sellerService.getFinanceReportCount({ limit, offset, dateRangeValues });
       res.json(salesReport);
     } catch (error) {
       console.error('Error fetching sales report:', error);

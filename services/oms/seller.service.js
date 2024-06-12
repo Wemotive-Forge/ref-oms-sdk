@@ -238,6 +238,41 @@ class SellerService {
        }
   };
 
+  async getIssueReportCount({ limit, offset, dateRangeValues }) {
+    try {
+
+        const stateCounts = await Issue.findAll({
+          attributes: [
+            'issueStatus',
+            [sequelize.fn('COUNT', sequelize.col('issueStatus')), 'count'],
+          ],
+          group: ['issueStatus']
+        });
+      return stateCounts;
+    } catch (err) {
+      console.error('Error fetching sales report:', err);
+      throw new Error('Error fetching sales report');
+    }
+  };
+
+  async getFinanceReportCount({ limit, offset, dateRangeValues }) {
+       try {
+
+           const stateCounts = await Order.findAll({
+             attributes: [
+               [sequelize.fn('SUM', sequelize.col('value')), 'collection'],
+               [sequelize.fn('SUM', sequelize.col('bff')), 'receivable'],
+               [sequelize.fn('SUM', sequelize.col('finalValue')), 'payable'],
+             ]
+
+           });
+         return stateCounts;
+       } catch (err) {
+         console.error('Error fetching sales report:', err);
+         throw new Error('Error fetching sales report');
+       }
+  };
+
   async getSalesReportTrend({ limit, offset, dateRangeValues, interval }) {
     try {
 
