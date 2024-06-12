@@ -295,6 +295,8 @@ class AuthenticationService {
 
                             }
 
+                            await  transaction.commit()
+
                         }else{
                             //create
                             //TODO: @ondc/org/buyer_app_finder_fee_type
@@ -411,7 +413,7 @@ class AuthenticationService {
 
 
                     } catch (err) {
-                        await transaction.rollback();
+                        //await transaction.rollback();
                         throw err
                     }
                 }
