@@ -16,6 +16,16 @@ class OrderController {
     }
   };
 
+  async bulkCreateOrder(req, res) {
+    try {
+      const data = req.body;
+      const newOrders = await orderService.bulkCreateOrder(data);
+      res.status(201).json(newOrders);
+    } catch (err) {
+      res.status(400).json({ message: err.message });
+    }
+  }
+
   async getAllOrders(req, res) {
     try {
       let dateRangeValues
