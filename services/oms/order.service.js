@@ -21,6 +21,95 @@ class OrderService {
     }
   };
 
+  async bulkCreateOrder(data) {
+    let transaction;
+    try {
+        // Validate data
+        if (!data || !Array.isArray(data.data) || data.data.length === 0) {
+            throw new Error("Invalid Data");
+        }
+
+        // Start a transaction
+        transaction = await sequelize.transaction();
+
+        let createdOrUpdatedOrders = [];
+
+        // Iterate through each order data
+        for (let orderData of data.data) {
+            let { items, fulfillments, ...orderDetails } = orderData;
+
+            // Find existing order by orderId
+            let existingOrder = await Order.findOne({ where: { orderId: orderDetails.orderId } });
+
+            if (!existingOrder) {
+                // Create order if it doesn't exist
+                let createdOrder = await Order.create(orderDetails, { transaction });
+                createdOrUpdatedOrders.push(createdOrder);
+
+                // Prepare items for bulk create
+                let orderItems = items.map(item => ({
+                    itemId: item.id,
+                    fulfillmentId: item.fulfillment_id,
+                    itemName: item.product.descriptor.name,
+                    quantity: item.quantity.count,
+                    OrderId: createdOrder.id
+                }));
+
+                // Prepare fulfillments for bulk create
+                let orderFulfillments = fulfillments.map(fulfillment => ({
+                    fulfillmentId: fulfillment.id,
+                    fulfillmentType: fulfillment.type,
+                    fulfillmentState: fulfillment.state.descriptor.code,
+                    details: fulfillment.details,
+                    OrderId: createdOrder.id
+                }));
+
+                // Bulk create items and fulfillments
+                await Item.bulkCreate(orderItems, { transaction });
+                await Fulfillment.bulkCreate(orderFulfillments, { transaction });
+            } else {
+                // Update existing order with new data
+                await existingOrder.update(orderDetails, { transaction });
+
+                // Update items
+                for (let item of items) {
+                    await Item.update(
+                        {
+                            itemName: item.product.descriptor.name,
+                            quantity: item.quantity.count
+                        },
+                        { where: { itemId: item.id }, transaction }
+                    );
+                }
+
+                // Update fulfillments
+                for (let fulfillment of fulfillments) {
+                    await Fulfillment.update(
+                        {
+                            fulfillmentType: fulfillment.type,
+                            fulfillmentState: fulfillment.state.descriptor.code,
+                            details: fulfillment.details
+                        },
+                        { where: { fulfillmentId: fulfillment.id }, transaction }
+                    );
+                }
+
+                // Push updated order to the result
+                createdOrUpdatedOrders.push(existingOrder);
+            }
+        }
+
+        // Commit the transaction
+        await transaction.commit();
+
+        return createdOrUpdatedOrders;
+    } catch (err) {
+        // Rollback the transaction if there's an error
+        if (transaction) await transaction.rollback();
+        throw new Error(err.message);
+    }
+  }
+
   async getAllOrders(data,dateRangeValues) {
     try {
       const whereCondition = {};
