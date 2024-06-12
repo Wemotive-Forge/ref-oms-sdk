@@ -68,6 +68,25 @@ class OrderController {
       res.status(500).json({ message: err.message });
     }
   };
+
+  async exportFinancialsToExcel(req, res){
+    const { SellerId } = req.query
+    const filePath = 'financials.xlsx';
+    try {
+      await orderService.exportFinancialsToExcel(filePath, SellerId);
+      res.download(filePath, (err) => {
+        if(err) {
+          throw new Error('Error downloading file');
+        } else {
+          //Delete the file after downlaod
+          fs.unlinkSync(filePath);
+        }
+      });
+    } catch(err) {
+      console.log(err);
+      res.status(500).json({ message: err.message })
+    }
+  }
 }
 
 module.exports = new OrderController();
