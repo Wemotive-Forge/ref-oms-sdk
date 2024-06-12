@@ -152,8 +152,8 @@ class OrderService {
             where: whereCondition,
             include: [
                 { model: Seller, required: true },
-                { model: Item, required: true },
-                { model: Fulfillment, required: true }
+                { model: Item },
+                { model: Fulfillment }
             ],
             transaction
         });
@@ -320,6 +320,73 @@ class OrderService {
       throw new Error(err);
     }
   };
+
+  async exportFinancialsToExcel(filePath, SellerId ) {
+    let transaction;
+    try {
+      transaction = await sequelize.transaction();
+      const whereCondition = {};
+      
+      if (SellerId) {
+        whereCondition.SellerId = SellerId;
+      }
+
+      const orders = await Order.findAll({
+        where: whereCondition,
+        include: [{ model: Seller, required: true }],
+        transaction
+      });
+
+      const workbook = new ExcelJS.Workbook();
+      // Helper function to set columns and add rows
+      function addSheetData(sheet, columns, data, rowFormatter) {
+        sheet.columns = columns;
+        sheet.getRow(1).font = { bold: true };
+
+        data.forEach(item => {
+          sheet.addRow(rowFormatter(item));
+        });
+      }
+
+      // Define columns
+      const financialsColumn = [
+        { header: 'ID', key: 'id', width: 20},
+        { header: 'Order ID', key: 'orderId', width: 20 },
+        { header: 'SNP', key: 'SellerName', width: 20 },
+        { header: 'Settlement Details', key: 'settlement', width: 40 },
+        { header: 'Collection', key: 'value', width: 20 },
+        { header: 'Receiveables', key: 'bff', width: 20 },
+        { header: 'Payables', key: 'finalValue', width: 20 },
+        { header: 'Currency', key: 'currency', width: 20}
+      ];
+
+      // Add financial sheet
+      const financialSheet = workbook.addWorksheet('Financials');
+      addSheetData(financialSheet, financialsColumn, orders, (order)=>{
+        let settlementString = '';
+        if (order.settlement) {
+            settlementString = jsonToPlainString(order.settlement);
+        }
+        return {
+          id: order.id,
+          orderId: order.orderId,
+          SellerName: order.Seller.name,
+          settlement: settlementString,
+          value: order.value,
+          bff: order.bff,
+          finalValue: order.finalValue,
+          currency: order.currency
+        }
+      })
+
+      await workbook.xlsx.writeFile(filePath);
+      await transaction.commit();
+      console.log(`Financials Excel file saved to ${filePath}`);
+    } catch (err) {
+      if (transaction) await transaction.rollback();
+      throw new Error(err);
+    }
+  }
 }
 function jsonToPlainString(jsonObj) {
   const result = [];
