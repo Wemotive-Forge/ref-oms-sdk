@@ -96,7 +96,12 @@ class SellerService {
             createdAt: {
               [Op.between]: [dateRangeValues.startDate, dateRangeValues.endDate]
             }
+            ,SellerId:seller.id
           }
+        }else{
+                  query = {
+                    SellerId:seller.id
+                  }
         }
 
         const stateCounts = await Order.findAll({
