@@ -5,6 +5,7 @@ import {orderController} from "../controllers";
 
 
 router.post('/orders', orderController.createOrder);
+router.post('/orders/bulk', orderController.bulkCreateOrder);
 router.get('/orders', orderController.getAllOrders);
 router.get('/orders/:id', orderController.getOrderById);
 router.get('/orders/state/count', orderController.getOrderStateCounts);

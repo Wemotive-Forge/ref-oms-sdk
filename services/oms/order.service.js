@@ -21,6 +21,155 @@ class OrderService {
     }
   };
 
+  async bulkCreateOrder(data) {
+    let transaction;
+    try {
+      let existingData = data.data
+      // Validate data
+      if (!data || !Array.isArray(existingData) || existingData.length === 0) {
+        throw new Error("Invalid Data");
+      }
+
+      // Start a transaction
+      transaction = await sequelize.transaction();
+
+      let createdOrUpdatedOrders = [];
+      let bulkCreateOrders = [];
+      let bulkUpdateOrders = [];
+      let bulkCreateItems = [];
+      let bulkUpdateItems = [];
+      let bulkCreateFulfillments = [];
+      let bulkUpdateFulfillments = [];
+
+      // Collect all the orders that need to be checked if they exist
+      let orderIds = existingData.map(order => order.orderId);
+      let existingOrders = await Order.findAll({ where: { orderId: orderIds }, transaction });
+      let existingOrderMap = new Map(existingOrders.map(order => [order.orderId, order]));
+
+      // Iterate through each order data
+      for (let orderData of existingData) {
+        let { items, fulfillments, ...orderDetails } = orderData;
+        let existingOrder = existingOrderMap.get(orderDetails.orderId);
+
+        if (!existingOrder) {
+          // Prepare to create order if it doesn't exist
+          bulkCreateOrders.push(orderDetails);
+        } else {
+          // Prepare to update existing order
+          bulkUpdateOrders.push(orderDetails);
+
+          // Prepare to update items
+          items.forEach(item => {
+            bulkUpdateItems.push({
+              itemName: item.product.descriptor.name,
+              quantity: item.quantity.count,
+              itemId: item.id,
+              OrderId: existingOrder.id // Ensure association with existing order
+            });
+          });
+
+          // Prepare to update fulfillments
+          fulfillments.forEach(fulfillment => {
+            bulkUpdateFulfillments.push({
+              fulfillmentType: fulfillment.type,
+              fulfillmentState: fulfillment.state.descriptor.code,
+              details: fulfillment.details,
+              fulfillmentId: fulfillment.id,
+              OrderId: existingOrder.id // Ensure association with existing order
+            });
+          });
+        }
+      }
+
+      // Bulk create orders and prepare items and fulfillments
+      if (bulkCreateOrders.length > 0) {
+        console.log("Creating Orders:", bulkCreateOrders);
+        let createdOrders = await Order.bulkCreate(bulkCreateOrders, { transaction, returning: true });
+        createdOrders.forEach(createdOrder => {
+          createdOrUpdatedOrders.push(createdOrder);
+          let orderData = existingData.find(order => order.orderId === createdOrder.orderId);
+          if (orderData) {
+            // Prepare items and fulfillments for bulk create
+            orderData.items.forEach(item => {
+              bulkCreateItems.push({
+                itemId: item.id,
+                fulfillmentId: item.fulfillment_id,
+                itemName: item.product.descriptor.name,
+                quantity: item.quantity.count,
+                OrderId: createdOrder.id
+              });
+            });
+            orderData.fulfillments.forEach(fulfillment => {
+              bulkCreateFulfillments.push({
+                fulfillmentId: fulfillment.id,
+                fulfillmentType: fulfillment.type,
+                fulfillmentState: fulfillment.state.descriptor.code,
+                details: fulfillment.details,
+                OrderId: createdOrder.id
+              });
+            });
+          }
+        });
+      }
+
+      // Bulk update orders
+      if (bulkUpdateOrders.length > 0) {
+        console.log("Updating Orders:", bulkUpdateOrders);
+        await Promise.all(bulkUpdateOrders.map(orderDetails =>
+          Order.update(orderDetails, { where: { orderId: orderDetails.orderId }, transaction })
+        ));
+        createdOrUpdatedOrders.push(...bulkUpdateOrders.map(orderDetails => ({ ...orderDetails })));
+      }
+
+      // Bulk create items and fulfillments
+      if (bulkCreateItems.length > 0) {
+        console.log("Creating Items:", bulkCreateItems);
+        await Item.bulkCreate(bulkCreateItems, { transaction });
+      }
+      if (bulkCreateFulfillments.length > 0) {
+        console.log("Creating Fulfillments:", bulkCreateFulfillments);
+        await Fulfillment.bulkCreate(bulkCreateFulfillments, { transaction });
+      }
+
+      // Bulk update items and fulfillments
+      if (bulkUpdateItems.length > 0) {
+        console.log("Updating Items:", bulkUpdateItems);
+        await Promise.all(bulkUpdateItems.map(item =>
+          Item.update(
+            {
+              itemName: item.itemName,
+              quantity: item.quantity
+            },
+            { where: { itemId: item.itemId }, transaction }
+          )
+        ));
+      }
+      if (bulkUpdateFulfillments.length > 0) {
+        console.log("Updating Fulfillments:", bulkUpdateFulfillments);
+        await Promise.all(bulkUpdateFulfillments.map(fulfillment =>
+          Fulfillment.update(
+            {
+              fulfillmentType: fulfillment.fulfillmentType,
+              fulfillmentState: fulfillment.fulfillmentState,
+              details: fulfillment.details
+            },
+            { where: { fulfillmentId: fulfillment.fulfillmentId }, transaction }
+          )
+        ));
+      }
+
+        // Commit the transaction
+        await transaction.commit();
+
+        return createdOrUpdatedOrders;
+    } catch (err) {
+      // Rollback the transaction if there's an error
+      if (transaction) await transaction.rollback();
+      console.error("Error during bulkCreateOrder:", err);
+      throw new Error(err.message);
+    }
+  }
+
   async getAllOrders(data,dateRangeValues) {
     try {
       const whereCondition = {};
