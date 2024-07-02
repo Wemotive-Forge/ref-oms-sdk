@@ -380,7 +380,7 @@ class SearchService {
     }
   }
 
-  async getItemDetails(searchRequest = {}, targetLanguage = "en") {
+  async getItemDetails(searchRequest = {}, targetLanguage = "en", errorTags = []) {
     try {
       // providerIds=ondc-mock-server-dev.thewitslab.com_ONDC:RET10_ondc-mock-server-dev.thewitslab.com
       let matchQuery = [];
@@ -410,9 +410,13 @@ class SearchService {
       });
 
       let item_details = null;
+      let indexName = null; // Initialize a variable to store the index name
       if (queryResults.hits.hits.length > 0) {
         item_details = queryResults.hits.hits[0]._source; // Return the source of the first hit
+        indexName = queryResults.hits.hits[0]._index; // Get the index name from the first hit
+        console.log("Index Name", indexName);
         item_details.customisation_items = [];
+        item_details.errorTags = errorTags; // Add errorTags from params
 
         // add variant details if available
         if (item_details.item_details.parent_item_id) {
@@ -495,6 +499,33 @@ class SearchService {
             (hit) => hit._source,
           );
         }
+        // Save the item details back to Elasticsearch with errorTags
+        await client.index({
+            index: indexName, // Use the dynamically retrieved index name
+            id: item_details.id,
+            body: item_details,
+        });
+
+        // Retrieve all items where errorTags include "ImageMissing", "NameMissing"
+        let errorTagQuery = {
+            bool: {
+                must: [
+                    {
+                        terms: {
+                            "errorTags": errorTags // Use errorTags from params
+                        }
+                    }
+                ]
+            }
+        };
+
+        let errorTagResults = await client.search({
+            index: indexName, // Use the dynamically retrieved index name
+            query: errorTagQuery,
+        });
+
+        let itemsWithImageMissing = errorTagResults.hits.hits.map((hit) => hit._source);
+        console.log("Items With Image Missing:", itemsWithImageMissing);
       }
 
       //            console.log("itemdetails--->",item_details)
