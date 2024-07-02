@@ -1,13 +1,4 @@
 import _ from "lodash";
-import { onSearch } from "../../utils/protocolApis/index.js";
-//import ContextFactory from "../../factories/ContextFactory.js";
-import BppSearchService from "./bppSearch.service.js";
-import { CITY_CODE } from "../../utils/cityCode.js";
-//import createPeriod from "date-period";
-import translateObject from "../../utils/bhashini/translate.js";
-import { OBJECT_TYPE } from "../../utils/constants.js";
-// import logger from "../lib/logger";
-const bppSearchService = new BppSearchService();
 import client from "../../database/elasticSearch.js";
 
 class SearchService {
