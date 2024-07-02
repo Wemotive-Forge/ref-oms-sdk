@@ -5,6 +5,7 @@ import orderRoutes from "./order.routes";
 import returnRoutes from "./return.routes";
 import sellerRoutes from "./seller.routes";
 import settlementRoutes from "./settlement.routes";
+import searchRoutes from './search.routes';
 
 export {
     authenticationRoutes,
@@ -13,5 +14,6 @@ export {
     orderRoutes,
     returnRoutes,
     sellerRoutes,
-    settlementRoutes
+    settlementRoutes,
+    searchRoutes
 }
