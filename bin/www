@@ -31,7 +31,7 @@ var server = http.createServer(app);
 /**
  * Let sequalize synchronize the database
  */
-sequelize.sync().then(function () {
+sequelize.sync({alter: true}).then(function () {
     /**
      * Listen on provided port, on all network interfaces.
      */
