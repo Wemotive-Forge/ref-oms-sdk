@@ -6,6 +6,28 @@ const sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USERNAME, pr
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
     dialect: process.env.DB_DIALECT,
+    // replication: {
+    //     read: [
+    //         {
+    //             host: 'postgres-master', 
+    //             port: process.env.DB_PORT,
+    //             username: process.env.DB_USERNAME,
+    //             password: process.env.DB_PASSWORD
+    //         },
+    //         {
+    //             host: '172.31.0.3', // Replica host for reading
+    //             port: 5433, // Replica database port
+    //             username: 'postgres', // Replica database username
+    //             password: 'Tirtha@4321' // Replica database password
+    //         }
+    //     ],
+    //     write: {
+    //         host: 'postgres-master', // Use master for writing
+    //         port: process.env.DB_PORT,
+    //         username: process.env.DB_USERNAME,
+    //         password: process.env.DB_PASSWORD
+    //     }
+    // },
     operatorsAliases: 0,
     timezone: '+05:30',
     charset: 'utf8',
