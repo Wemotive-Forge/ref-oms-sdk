@@ -418,6 +418,20 @@ class SearchService {
         item_details.customisation_items = [];
         item_details.errorTags = errorTags; // Add errorTags from params
 
+        // Check for ImageMissing
+        if (!item_details.item_details.descriptor.images || item_details.item_details.descriptor.images.length === 0) {
+          if (!errorTags.includes('ImageMissing')) {
+            errorTags.push('ImageMissing');
+          }
+        }
+
+        //Check for NameMissing
+        if(!item_details.item_details.descriptor.name){
+          if(!errorTags.includes('NameMissing')){
+            errorTags.push('NameMissing')
+          }
+        }
+
         // add variant details if available
         if (item_details.item_details.parent_item_id) {
           // hit db to find all related items
@@ -500,19 +514,21 @@ class SearchService {
           );
         }
         // Save the item details back to Elasticsearch with errorTags
-        await client.index({
+        let savedRes = await client.index({
             index: indexName, // Use the dynamically retrieved index name
             id: item_details.id,
             body: item_details,
         });
 
-        // Retrieve all items where errorTags include "ImageMissing", "NameMissing"
+        console.log('SAVED RESPONSE', savedRes);
+
+        // Retrieve all items where errorTags include 'ImageMissing', 'NameMissing'
         let errorTagQuery = {
             bool: {
                 must: [
                     {
                         terms: {
-                            "errorTags": errorTags // Use errorTags from params
+                            "errorTags": ["ImageMissing", "NameMissing"]
                         }
                     }
                 ]
