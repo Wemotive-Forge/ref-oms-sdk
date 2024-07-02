@@ -389,7 +389,7 @@ class SearchService {
     }
   }
 
-  async getItemDetails(searchRequest = {}, targetLanguage = "en") {
+  async getItemDetails(searchRequest = {}, targetLanguage = "en", errorTags = []) {
     try {
       // providerIds=ondc-mock-server-dev.thewitslab.com_ONDC:RET10_ondc-mock-server-dev.thewitslab.com
       let matchQuery = [];
@@ -422,6 +422,13 @@ class SearchService {
       if (queryResults.hits.hits.length > 0) {
         item_details = queryResults.hits.hits[0]._source; // Return the source of the first hit
         item_details.customisation_items = [];
+
+      if (!item_details.item_details.descriptor.images) {
+        errorTags.push('ImageMissing');
+      }
+      if (!item_details.item_details.descriptor.name) {
+        errorTags.push('NameMissing');
+      }
 
         // add variant details if available
         if (item_details.item_details.parent_item_id) {
@@ -505,6 +512,9 @@ class SearchService {
           );
         }
       }
+
+    // Save item_details including errorTags to Elasticsearch
+    item_details.errorTags = errorTags;
 
       //            console.log("itemdetails--->",item_details)
       return item_details;
