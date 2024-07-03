@@ -227,68 +227,6 @@ class SearchService {
     }
   }
 
-  async getItems(searchRequest = {}, targetLanguage = "en") {
-    try {
-      let matchQuery = [];
-
-      // bhashini translated data
-      matchQuery.push({
-        match: {
-          language: targetLanguage,
-        },
-      });
-
-      if (searchRequest.customMenu) {
-        matchQuery.push({
-          nested: {
-            path: "customisation_menus",
-            query: {
-              bool: {
-                must: [
-                  {
-                    match: {
-                      "customisation_menus.id": searchRequest.customMenu,
-                    },
-                  },
-                ],
-              },
-            },
-          },
-        });
-      }
-
-      let query_obj = {
-        bool: {
-          must: matchQuery,
-        },
-      };
-
-      // Perform the search with pagination parameters
-      let queryResults = await client.search({
-        body: {
-          query: query_obj,
-        },
-      });
-
-      // Extract the _source field from each hit
-      let sources = queryResults.hits.hits.map((hit) => hit._source);
-
-      // Get the total count of results
-      let totalCount = queryResults.hits.total.value;
-
-      // Return the total count and the sources
-      return {
-        response: {
-          count: totalCount,
-          data: sources,
-          pages: totalCount,
-        },
-      };
-    } catch (err) {
-      throw err;
-    }
-  }
-
   async getProvideDetails(searchRequest = {}, targetLanguage = "en") {
     try {
       // id=pramaan.ondc.org/alpha/mock-server_ONDC:RET12_pramaan.ondc.org/alpha/mock-server
@@ -666,103 +604,6 @@ class SearchService {
     }
   }
 
-  async getLocations1(searchRequest, targetLanguage = "en") {
-    try {
-
-     let matchQuery = []
-
-     if(searchRequest.domain){
-      matchQuery.push(            {
-                                    match: {
-                                      "context.domain": searchRequest.domain,
-                                    },
-                                  },)
-     }
-      let query_obj = {
-        bool: {
-          must: matchQuery,
-          should: [
-            //TODO: enable this once UI apis have been changed
-            {
-              match: {
-                "location_details.type.keyword": "pan",
-              },
-            },
-            {
-              geo_shape: {
-                "location_details.polygons": {
-                  shape: {
-                    type: "point",
-                    coordinates: [
-                      parseFloat(searchRequest.latitude),
-                      parseFloat(searchRequest.longitude),
-                    ],
-                  },
-                },
-              },
-            },
-          ],
-        },
-      };
-
-      let aggr_query = {
-        unique_locations: {
-          terms: {
-            field: "location_details.id",
-          },
-          aggs: {
-            products: {
-              top_hits: {
-                size: 1,
-              },
-            },
-          },
-        },
-      };
-
-      // Calculate the starting point for the search
-      let size = parseInt(searchRequest.limit);
-      let page = parseInt(searchRequest.pageNumber);
-      const from = (page - 1) * size;
-
-      // Perform the search with pagination parameters
-      let queryResults = await client.search({
-        query: query_obj,
-        aggs: aggr_query,
-      });
-
-      console.log("queryResults--->", queryResults);
-
-      let unique_locations = [];
-
-      for (const bucket of queryResults.aggregations.unique_locations.buckets) {
-        const details = bucket.products.hits.hits.map((hit) => hit._source)[0];
-        unique_locations.push({
-          domain: details.context.domain,
-          provider_descriptor: details.provider_details.descriptor,
-          provider: details.provider_details.id,
-          ...details.location_details,
-        });
-      }
-
-      // Get the total count of results
-      let totalCount = queryResults.hits.total.value;
-
-      // Return the total count and the sources
-      return {
-        count: totalCount,
-        data: unique_locations,
-        pages: parseInt(totalCount / 1),
-      };
-
-      // return unique_providers
-      //            return unique_locations;
-    } catch (err) {
-      throw err;
-    }
-  }
-
-
   async getLocations(searchRequest, targetLanguage = "en") {
     try {
 
@@ -1063,33 +904,6 @@ class SearchService {
     } catch (err) {
       throw err;
     }
-  }
-
-  async getProviders1(indexName, pageSize, afterKey = null) {
-    const body = {
-      size: 0, // We don't need the actual documents, only the aggregation results
-      aggs: {
-        unique_provider_ids: {
-          composite: {
-            size: 20,
-            sources: [
-              { provider_id: { terms: { field: 'provider_details.id' } } }
-            ]
-          }
-        }
-      }
-    };
-  
-    // If afterKey is provided, add it to the request body
-    if (afterKey) {
-      body.aggs.unique_provider_ids.after = afterKey;
-    }
-  
-    const { body: response } = await client.search({
-      body
-    });
-  
-    return response.aggregations.unique_provider_ids;
   }
 
   async getCustomMenu(searchRequest, targetLanguage = "en") {

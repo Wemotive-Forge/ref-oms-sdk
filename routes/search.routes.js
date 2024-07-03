@@ -17,16 +17,6 @@ router.get(
 
 // get item details
 router.get(
-    '/v2/items/:id', searchController.getItem,
-);
-
-// get item details
-router.get(
-    '/v2/providers/:itemId', searchController.getProvider,
-);
-
-// get item details
-router.get(
     '/v2/provider-details',searchController.getProvideDetails,
 );
 // get item details
@@ -39,18 +29,8 @@ router.get(
     '/v2/item-details',searchController.getItemDetails,
 );
 
-// get item details
-router.get(
-    '/v2/locations/:id',  searchController.getLocation,
-);
-
-
 router.get(
     '/v2/attributes',  searchController.getAttributes,
-);
-
-router.get(
-    '/v2/items', searchController.getItems,
 );
 
 router.get(

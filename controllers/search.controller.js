@@ -120,61 +120,6 @@ class SearchController {
     }
 
     /**
-    * get item
-    * @param {*} req    HTTP request object
-    * @param {*} res    HTTP response object
-    * @param {*} next   Callback argument to the middleware function
-    * @return {callback}
-    */
-    getItem(req, res, next) {
-        const searchRequest = req.query;
-        const {id:itemId} = req.params;
-
-        console.log({searchRequest})
-
-        searchService.getItems(searchRequest,itemId).then(response => {
-            if(!response || response === null)
-                throw new NoRecordFoundError("No result found");
-            else
-                res.json(response);
-        }).catch((err) => {
-            next(err);
-        });
-    }
-
-    getProvider(req, res, next) {
-        const searchRequest = req.query;
-        const {itemId} = req.params;
-
-        console.log("get providers*****1*********" ,{searchRequest,itemId})
-
-        searchService.getProviders(searchRequest,itemId).then(response => {
-            if(!response || response === null)
-                throw new NoRecordFoundError("No result found");
-            else
-                res.json(response.response);
-        }).catch((err) => {
-            next(err);
-        });
-    }
-
-    getLocation(req, res, next) {
-        const searchRequest = req.query;
-        const {id:locationId} = req.params;
-
-        console.log({searchRequest})
-
-        searchService.getLocations(searchRequest,locationId).then(response => {
-            if(!response || response === null)
-                throw new NoRecordFoundError("No result found");
-            else
-                res.json(response.response);
-        }).catch((err) => {
-            next(err);
-        });
-    }
-
-    /**
     * get attributes
     * @param {*} req    HTTP request object
     * @param {*} res    HTTP response object
@@ -191,26 +136,6 @@ class SearchController {
                 throw new NoRecordFoundError("No result found");
             else
                 res.json(response);
-        }).catch((err) => {
-            next(err);
-        });
-    }
-
-    getItems(req, res, next) {
-        const searchRequest = req.query;
-
-        console.log({searchRequest})
-
-        console.log({searchRequest})
-        const headers = req.headers;
-
-        let targetLanguage = headers['targetlanguage'];
-
-        searchService.getItems(searchRequest,targetLanguage).then(response => {
-            if(!response || response === null)
-                throw new NoRecordFoundError("No result found");
-            else
-                res.json(response.response);
         }).catch((err) => {
             next(err);
         });
@@ -337,49 +262,6 @@ class SearchController {
         }).catch((err) => {
             next(err);
         });
-    }
-    /**
-    * on search 
-    * @param {*} req    HTTP request object
-    * @param {*} res    HTTP response object
-    * @param {*} next   Callback argument to the middleware function
-    * @return {callback}
-    */
-    onSearch(req, res, next) {
-        const { query } = req;
-        const { messageId } = query;
-
-        if(messageId) {
-            searchService.onSearch(query).then(result => {
-                res.json(result);
-            }).catch((err) => {
-                next(err);
-            });
-        }
-        else
-            throw new BadRequestParameterError();
-    }
-
-    /**
-    * filter 
-    * @param {*} req    HTTP request object
-    * @param {*} res    HTTP response object
-    * @param {*} next   Callback argument to the middleware function
-    * @return {callback}
-    */
-    getFilterParams(req, res, next) {
-        const { query } = req;
-        const { messageId } = query;
-        
-        if(messageId) {
-            searchService.getFilterParams(query).then(result => {
-                res.json(result);
-            }).catch((err) => {
-                next(err);
-            });
-        }
-        else
-            throw new BadRequestParameterError();
     }
 }
 
