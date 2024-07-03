@@ -13,7 +13,8 @@ import {
     orderRoutes,
     returnRoutes,
     sellerRoutes,
-    settlementRoutes
+    settlementRoutes,
+    searchRoutes
 } from './routes';
 const mailer = new Mailer();
 
@@ -61,6 +62,7 @@ app.use('/api', orderRoutes);
 app.use('/api', returnRoutes);
 app.use('/api', sellerRoutes);
 app.use('/api', settlementRoutes);
+app.use('/api', searchRoutes);
 
 app.disable('etag');
 
