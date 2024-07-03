@@ -24,6 +24,7 @@ ENV PROTOCOL "http://"
 ENV USE_FQDN_FOR_APIS false
 ENV FQDN ""
 
-#CMD [ "npm", "serve", "--port", $PORT]
-CMD exec npm run start
 
+EXPOSE 4000
+
+CMD ["npm", "run", "start"]
