@@ -263,6 +263,34 @@ class SearchController {
             next(err);
         });
     }
+
+    addErrorTags(req, res, next) {
+        const { itemId, errorTags } = req.body;
+
+        searchService.addErrorTags(itemId, errorTags)
+            .then(response => {
+                if (!response) {
+                    throw new NoRecordFoundError("No item found");
+                } else {
+                    res.json(response);
+                }
+            })
+            .catch(err => {
+                next(err);
+            });
+    }
+
+    searchItemsWithErrorTags(req, res, next) {
+        const { type, code } = req.query;  // Get 'type' and 'code' from the query parameters
+
+        searchService.searchItemsWithErrorTags(type, code)
+            .then(results => {
+                res.json(results);
+            })
+            .catch(err => {
+                next(err);
+            });
+    }
 }
 
 export default SearchController;
