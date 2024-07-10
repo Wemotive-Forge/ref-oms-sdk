@@ -925,7 +925,7 @@ class SearchService {
           composite: {
             size: searchRequest.limit,
             sources: [
-              { provider_id: { terms: { field: "provider_details.id" } } }
+              { provider_id: { terms: { field: "provider_details.id" } } } //we need to add location id too, we have to show combined locationDetails.id and providerDetails.id with pagination
             ],
             after: searchRequest.afterKey?{provider_id:searchRequest.afterKey}:undefined
           },
@@ -1127,6 +1127,267 @@ class SearchService {
       throw err;
     }
   }
+  async listProviders(searchRequest = {}, targetLanguage = "en") {
+    try {
+      let matchQuery = [];
+  
+      // Filter by target language
+      matchQuery.push({
+        match: {
+          language: targetLanguage,
+        },
+      });
+  
+      // Add search filters based on provided searchRequest
+      if (searchRequest.name) {
+        matchQuery.push({
+          match: {
+            "item_details.descriptor.name": searchRequest.name,
+          },
+        });
+      }
+  
+      if (searchRequest.providerIds) {
+        matchQuery.push({
+          match: {
+            "provider_details.id": searchRequest.providerIds,
+          },
+        });
+      }
+  
+      if (searchRequest.categoryIds) {
+        matchQuery.push({
+          match: {
+            "item_details.category_id": searchRequest.categoryIds,
+          },
+        });
+      }
+  
+      if (searchRequest.bpp_id) {
+        matchQuery.push({
+          match: {
+            "context.bpp_id": searchRequest.bpp_id,
+          },
+        });
+      }
+  
+      if (searchRequest.city) {
+        matchQuery.push({
+          match: {
+            "context.city": searchRequest.city,
+          },
+        });
+      }
+  
+      if (searchRequest.domain) {
+        matchQuery.push({
+          match: {
+            "context.domain": searchRequest.domain,
+          },
+        });
+      }
+  
+      // Add a filter for variants
+      matchQuery.push({
+        match: {
+          is_first: true,
+        },
+      });
+  
+      // Construct the query object
+      let query_obj = {
+        bool: {
+          must: matchQuery,
+        },
+      };
+  
+      // Calculate pagination parameters
+      let size = parseInt(searchRequest.limit);
+      let page = parseInt(searchRequest.pageNumber);
+      const from = (page - 1) * size;
+  
+      // Perform the search with pagination and aggregations
+      let queryResults = await client.search({
+        index: 'items',
+        body: {
+          query: query_obj,
+          from: from, // Fetch all results initially, pagination will be handled manually
+          size: size,
+          aggs: {
+            unique_provider_location: {
+              composite: {
+                size: size, // Number of results to return per page
+                sources: [
+                  { provider_id: { terms: { field: "provider_details.id" } } },
+                  { location_id: { terms: { field: "location_details.id" } } }
+                ],
+                after: searchRequest.afterKey ? { provider_id: searchRequest.afterKey.provider_id, location_id: searchRequest.afterKey.location_id } : undefined
+              },
+              aggs: {
+                item_count: { value_count: { field: 'item_details.id' } }, // Count items for each provider-location combination
+                top_hits: { top_hits: { size: 1 } } // Get top hit for additional details
+              }
+            }
+          }
+        },
+      });
+  
+      // Extract the provider data and aggregations
+      let providers = queryResults.aggregations.unique_provider_location.buckets.flatMap((bucket) => {
+        const itemCount = bucket.item_count.value;
+        const topHit = bucket.top_hits.hits.hits[0]?._source; // Safely accessing top_hits
+  
+        if (!topHit) {
+          return null; // Skip if topHit is undefined
+        }
+        console.log("BUCKET", bucket);
+        const locationId = bucket.key.location_id;
+  
+        return {
+          name: topHit.context.bpp_id, // BPP ID as name
+          provider: topHit.provider_details.descriptor.name, // Provider name
+          seller_app: topHit.context.bpp_id, // Seller app
+          item_count: itemCount, // Number of items
+          location_id: locationId, // Location ID
+        };
+      }).filter(provider => provider !== null); // Filter out null values
+  
+      // Return the total count and the sources
+      return {
+        response: {
+          count: providers.length,
+          data: providers,
+          pages: Math.ceil(providers.length / size), // Calculate the total number of pages
+        },
+      };
+    } catch (err) {
+      throw err;
+    }
+  }  
+  
+  async displayItems(searchRequest = {}, targetLanguage = "en") {
+    try {
+        let matchQuery = [];
+
+        // Match for target language
+        matchQuery.push({
+            match: {
+                language: targetLanguage,
+            },
+        });
+
+        // Apply additional filters as per searchRequest
+        if (searchRequest.name) {
+            matchQuery.push({
+                match: {
+                    "item_details.descriptor.name": searchRequest.name,
+                },
+            });
+        }
+
+        if (searchRequest.providerIds) {
+            matchQuery.push({
+                match: {
+                    "provider_details.id": searchRequest.providerIds,
+                },
+            });
+        }
+
+        if (searchRequest.categoryIds) {
+            matchQuery.push({
+                match: {
+                    "item_details.category_id": searchRequest.categoryIds,
+                },
+            });
+        }
+
+        if (searchRequest.bpp_id) {
+          matchQuery.push({
+            match: {
+              "context.bpp_id": searchRequest.bpp_id,
+            },
+          });
+        }
+  
+        if (searchRequest.city) {
+          matchQuery.push({
+            match: {
+              "context.city": searchRequest.city,
+            },
+          });
+        }
+  
+        if (searchRequest.domain) {
+          matchQuery.push({
+            match: {
+              "context.domain": searchRequest.domain,
+            },
+          });
+        }
+
+        // Ensure only first items are considered
+        matchQuery.push({
+            match: {
+                is_first: true,
+            },
+        });
+
+        let query_obj = {
+            bool: {
+                must: matchQuery,
+            },
+        };
+
+        // Calculate pagination parameters
+        let size = parseInt(searchRequest.limit);
+        let page = parseInt(searchRequest.pageNumber);
+        const from = (page - 1) * size;
+
+        // Elasticsearch query with aggregation
+        let queryResults = await client.search({
+            index: 'items',
+            body: {
+                query: query_obj,
+                from: from,
+                size: size,
+                _source: [
+                    'item_details.id',
+                    'context.bpp_id',
+                    'provider_details.descriptor.name',
+                    'item_details.descriptor.name',
+                    'item_details.descriptor.images',
+                    'item_details.price.value',
+                    'item_details.quantity.available.count'
+                ],
+            },
+        });
+
+        // Extract data from Elasticsearch response
+        let items = queryResults.hits.hits.map((hit) => ({
+            item_id: hit._source.item_details.id,
+            seller_app: hit._source.context.bpp_id,
+            provider_name: hit._source.provider_details.descriptor.name,
+            name: hit._source.context.bpp_id,
+            images: hit._source.item_details.descriptor.images,
+            price: hit._source.item_details.price.value,
+            quantity: hit._source.item_details.quantity.available.count
+        }));
+
+        // Get the total count of results
+        let totalCount = queryResults.hits.total.value;
+
+        // Return the total count and the items data
+        return {
+            response: {
+                count: totalCount,
+                data: items,
+                pages: Math.ceil(totalCount / size),
+            },
+        };
+    } catch (err) {
+        throw err;
+    }
+}
 
 }
 
