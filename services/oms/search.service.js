@@ -1053,6 +1053,8 @@ class SearchService {
 
   async flagSeller(searchRequest, targetLanguage="en"){
 
+    searchRequest.flagged = JSON.parse(searchRequest.flagged.toLowerCase());
+      
     const bulkBody = [];
     const searchResults = await client.search({
       index: 'items',
