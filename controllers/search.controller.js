@@ -280,6 +280,45 @@ class SearchController {
             next(err);
         });
     }
+
+    listProviders(req, res, next) {
+        const searchRequest = req.query;
+    
+        console.log({ searchRequest });
+        const headers = req.headers;
+    
+        let targetLanguage = headers['targetlanguage'];
+    
+        searchService.listProviders(searchRequest, targetLanguage)
+            .then(response => {
+                if (!response || response === null)
+                    throw new NoRecordFoundError("No result found");
+                else
+                    res.json(response);
+            })
+            .catch((err) => {
+                next(err);
+            });
+    }
+
+    displayItems(req, res, next) {
+        const searchRequest = req.query;
+        const headers = req.headers;
+        let targetLanguage = headers['targetlanguage'] || "en"; // Default to 'en' if not provided
+    
+        searchService.displayItems(searchRequest, targetLanguage)
+            .then(response => {
+                if (!response) {
+                    throw new NoRecordFoundError("No items found");
+                } else {
+                    res.json(response);
+                }
+            })
+            .catch(err => {
+                next(err);
+            });
+    }    
+    
 }
 
 export default SearchController;
