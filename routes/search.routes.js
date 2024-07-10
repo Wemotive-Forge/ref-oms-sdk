@@ -66,4 +66,8 @@ router.get(
     '/seller-details', searchController.getSellerDetails
 );
 
+router.put(
+    '/flag-seller', searchController.flagSeller
+);
+
 export default router;

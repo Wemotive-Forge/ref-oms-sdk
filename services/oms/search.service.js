@@ -403,7 +403,7 @@ class SearchService {
       if (searchRequest.id) {
         matchQuery.push({
           match: {
-            id: searchRequest.id,
+            _id: searchRequest.id,
           },
         });
       }
@@ -1051,6 +1051,40 @@ class SearchService {
     }
   }
 
+  async flagSeller(searchRequest, targetLanguage="en"){
+
+    const bulkBody = [];
+    const searchResults = await client.search({
+      index: 'items',
+      body: {
+        query: {
+          term: {
+            'context.bpp_id': searchRequest.bpp_id
+          }
+        }
+      }
+    });
+    
+    searchResults.hits.hits.forEach(hit => {
+      bulkBody.push({
+        update: {
+          _index: "items",
+          _id: hit._id
+        }
+      });
+      
+      bulkBody.push({
+        doc: {
+          flagged: searchRequest.flagged
+        }
+      });
+    });
+
+    const bulkResponse  = await client.bulk({body:bulkBody});
+    
+    return bulkResponse;
+    
+  }
 
 
   async  getOffers(searchRequest, targetLanguage = "en") {
