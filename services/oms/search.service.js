@@ -103,6 +103,75 @@ class SearchService {
     }
   }
 
+  async getSellers(searchRequest = {}, targetLanguage = "en") {
+    let afterKey;
+    if (searchRequest.after) {
+      afterKey = {
+        "context.bpp_id": searchRequest.after
+      }
+    }
+    const allSellers = await client.search({
+      index: 'items',
+      query: {
+        bool: {
+          must: [{
+            match: {
+              "context.domain": searchRequest.domain
+            }
+          }]
+        }
+      },
+      size: 0,
+      aggs: {
+        unique: {
+
+          composite: {
+            after: afterKey,
+            sources: {
+              "context.bpp_id": {
+                terms: {
+                  "field": "context.bpp_id"
+                }
+              }
+            },
+            size: searchRequest.limit
+          },
+          aggs: {
+            unique_providers: {
+              cardinality: {
+                field: 'provider_details.id'
+              }
+            },
+            unique_items: {
+              cardinality: {
+                field: 'item_details.id'
+              }
+            }
+          }
+        }
+      }
+
+    });
+
+    const {
+      buckets
+    } = allSellers.aggregations.unique;
+    const grouped = _.groupBy(buckets, item => item.key["context.bpp_id"]);
+
+
+    const result = _.reduce(grouped, (acc, group, key) => {
+      acc[key] = {
+        item_count: group[0].unique_items.value,
+        provider_count: group[0].unique_providers.value
+      };
+      return acc;
+    }, {});
+    result._after = allSellers.aggregations.unique.after_key["context.bpp_id"]
+    return result;
+
+  }
+
+
   async globalSearchItems(searchRequest = {}, targetLanguage = "en") {
     try {
       // providerIds=ondc-mock-server-dev.thewitslab.com_ONDC:RET10_ondc-mock-server-dev.thewitslab.com
