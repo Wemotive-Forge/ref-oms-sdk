@@ -70,4 +70,17 @@ router.put(
     '/flag-seller', searchController.flagSeller
 );
 
+//addItemErrorTags
+router.post(
+    '/addItemErrorTags', searchController.addItemErrorTags
+)
+
+router.post(
+    '/addProviderErrorTags', searchController.addProviderErrorTags
+)
+
+router.post(
+    '/addSellerErrorTags', searchController.addSellerErrorTags
+)
+
 export default router;
