@@ -105,25 +105,59 @@ class SearchService {
 
   async getSellers(searchRequest = {}, targetLanguage = "en") {
     let afterKey;
-    let query;
+    let query = {
+        bool: {
+            must: [{
+                match: {
+                    "context.domain": searchRequest.domain,
+                    "flagged": JSON.parse(searchRequest.flagged.toLowerCase())
+                }
+            }]
+        }
+    };
     if (searchRequest.after) {
         afterKey = {
             "context.bpp_id": searchRequest.after
         }
     }
 
-    if (searchRequest.domain){
-      query = {
-            bool: {
-                must: [{
-                    match: {
-                        "context.domain": searchRequest.domain
-                    }
-                }]
-            }
-      }
+    if (!searchRequest.domain) {
+        query.bool.must[0].match["context.domain"] = undefined;
     }
+    const allSellersFlagged = await client.search({
+        index: 'items',
+        query: query,
+        size: 0,
+        aggs: {
+            unique: {
+                composite: {
+                    after: afterKey,
+                    sources: {
+                        "context.bpp_id": {
+                            terms: {
+                                "field": "context.bpp_id"
+                            }
+                        }
+                    },
+                    size: searchRequest.limit
+                },
+                aggs: {
+                    flagged_unique_providers: {
+                        cardinality: {
+                            field: 'provider_details.id'
+                        }
+                    },
+                    flagged_unique_items: {
+                        cardinality: {
+                            field: 'item_details.id'
+                        }
+                    }
+                }
+            }
+        }
 
+    });
+    query = undefined
     const allSellers = await client.search({
         index: 'items',
         query: query,
@@ -162,22 +196,28 @@ class SearchService {
     const {
         buckets
     } = allSellers.aggregations.unique;
+
+    const { buckets : flaggedBuckets } = allSellersFlagged.aggregations.unique;
     const grouped = _.groupBy(buckets, item => item.key["context.bpp_id"]);
-
-
+    const flaggedGrouped = _.groupBy(flaggedBuckets, item => item.key["context.bpp_id"]);
+    
     const result = _.map(grouped, (group, key) => {
-        return {
+      console.log(flaggedGrouped[key]);  
+      return {
             bpp_id: key,
             item_count: group[0].unique_items.value,
-            provider_count: group[0].unique_providers.value
+            provider_count: group[0].unique_providers.value,
+            flagged_items_count: flaggedGrouped[key] && flaggedGrouped[key][0]?.flagged_unique_items?.value,
+            flagged_providers_count: flaggedGrouped[key] && flaggedGrouped[key][0]?.flagged_unique_providers?.value 
         }
     });
+    
     return {
         sellers: result,
         _after: allSellers.aggregations.unique.after_key["context.bpp_id"]
     };
 
-}
+  }
 
 
   async globalSearchItems(searchRequest = {}, targetLanguage = "en") {
@@ -1058,7 +1098,10 @@ class SearchService {
   }
 
   async flagSeller(searchRequest, targetLanguage="en"){
-    
+    if (!_.isBoolean(searchRequest.flagged)){
+      throw new Error("Flag can only be boolean type");
+    }
+
     let key;
     switch(searchRequest.type){
       case "seller":

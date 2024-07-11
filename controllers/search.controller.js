@@ -272,10 +272,6 @@ class SearchController {
             JSON.stringify(searchRequest)
         );
 
-        if (!_.isBoolean(searchRequest.flagged)){
-            throw new Error("Flag can only be boolean type");
-          }
-
         searchService.flagSeller(searchRequest).then(response => {
             if(!response || response === null)
                 throw new NoRecordFoundError("No result found");
