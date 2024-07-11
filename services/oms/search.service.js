@@ -624,9 +624,21 @@ class SearchService {
       },
     },)
 
+      // Geo distance filter
+      let geoDistanceFilter = {
+        geo_distance: {
+          distance: '50km',
+          "location_details.gps": {
+            lat: parseFloat(searchRequest.latitude),
+            lon: parseFloat(searchRequest.longitude),
+          },
+        },
+      };
+
       let query_obj = {
         bool: {
           must: matchQuery,
+          filter: [geoDistanceFilter],
           should: [
             //TODO: enable this once UI apis have been changed
             {
@@ -679,6 +691,21 @@ class SearchService {
       let queryResults = await client.search({
         body: {
           query: query_obj,
+          sort: [
+            {
+              _geo_distance: {
+                "location_details.gps": {
+                  lat: parseFloat(searchRequest.latitude),
+                  lon: parseFloat(searchRequest.longitude),
+                },
+                order: "asc",
+                unit: "km",
+                mode: "min",
+                distance_type: "arc",
+                ignore_unmapped: true
+              },
+            },
+          ],
           aggs: aggr_query,
           size: 0
         }
