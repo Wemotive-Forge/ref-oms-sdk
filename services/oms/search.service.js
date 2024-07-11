@@ -103,6 +103,77 @@ class SearchService {
     }
   }
 
+  async getSellers(searchRequest = {}, targetLanguage = "en") {
+    let afterKey;
+    if (searchRequest.after) {
+        afterKey = {
+            "context.bpp_id": searchRequest.after
+        }
+    }
+    const allSellers = await client.search({
+        index: 'items',
+        query: {
+            bool: {
+                must: [{
+                    match: {
+                        "context.domain": searchRequest.domain
+                    }
+                }]
+            }
+        },
+        size: 0,
+        aggs: {
+            unique: {
+
+                composite: {
+                    after: afterKey,
+                    sources: {
+                        "context.bpp_id": {
+                            terms: {
+                                "field": "context.bpp_id"
+                            }
+                        }
+                    },
+                    size: searchRequest.limit
+                },
+                aggs: {
+                    unique_providers: {
+                        cardinality: {
+                            field: 'provider_details.id'
+                        }
+                    },
+                    unique_items: {
+                        cardinality: {
+                            field: 'item_details.id'
+                        }
+                    }
+                }
+            }
+        }
+
+    });
+
+    const {
+        buckets
+    } = allSellers.aggregations.unique;
+    const grouped = _.groupBy(buckets, item => item.key["context.bpp_id"]);
+
+
+    const result = _.map(grouped, (group, key) => {
+        return {
+            bpp_id: key,
+            item_count: group[0].unique_items.value,
+            provider_count: group[0].unique_providers.value
+        }
+    });
+    return {
+        sellers: result,
+        _after: allSellers.aggregations.unique.after_key["context.bpp_id"]
+    };
+
+}
+
+
   async globalSearchItems(searchRequest = {}, targetLanguage = "en") {
     try {
       // providerIds=ondc-mock-server-dev.thewitslab.com_ONDC:RET10_ondc-mock-server-dev.thewitslab.com
@@ -332,7 +403,7 @@ class SearchService {
       if (searchRequest.id) {
         matchQuery.push({
           match: {
-            id: searchRequest.id,
+            _id: searchRequest.id,
           },
         });
       }
@@ -980,6 +1051,44 @@ class SearchService {
     }
   }
 
+  async flagSeller(searchRequest, targetLanguage="en"){
+
+    searchRequest.flagged = JSON.parse(searchRequest.flagged.toLowerCase());
+      
+    const bulkBody = [];
+    const searchResults = await client.search({
+      index: 'items',
+      body: {
+        query: {
+          term: {
+            'context.bpp_id': searchRequest.bpp_id
+          }
+        }
+      }
+    });
+    
+    searchResults.hits.hits.forEach(hit => {
+      bulkBody.push({
+        update: {
+          _index: "items",
+          _id: hit._id
+        }
+      });
+      
+      bulkBody.push({
+        doc: {
+          flagged: searchRequest.flagged
+        }
+      });
+    });
+
+    const bulkResponse  = await client.bulk({body:bulkBody});
+    
+    return bulkResponse;
+    
+  }
+
+
   async  getOffers(searchRequest, targetLanguage = "en") {
     try {
       let matchQuery = [];
@@ -1059,6 +1168,207 @@ class SearchService {
     }
   }
 
+  async addItemErrorTags(items) {
+    try {
+      // Check if items is an array and not empty
+      if (!Array.isArray(items) || items.length === 0) {
+        throw new Error('Invalid input: items should be a non-empty array.');
+      }
+  
+      const bulkBody = [];
+  
+      for (const item of items) {
+        const { itemId, itemErrorTags } = item;
+  
+        if (!itemId || !Array.isArray(itemErrorTags)) {
+          throw new Error('Invalid input: itemId should be a string and itemErrorTags should be an array.');
+        }
+  
+        // Construct the query to match the item by itemId
+        const query_obj = {
+          query: {
+            term: {
+              id: itemId
+            }
+          }
+        };
+  
+        // Search for the item
+        const queryResults = await client.search({
+          index: 'items',
+          body: query_obj,
+        });
+  
+        if (queryResults.hits.hits.length === 0) {
+          throw new Error(`Item not found: ${itemId}`);
+        }
+  
+        queryResults.hits.hits.forEach(hit => {
+          const item_details = hit._source;
+  
+          // Check if itemErrorTags exists, if not initialize it as an empty array
+          if (!Array.isArray(item_details.itemErrorTags)) {
+            item_details.itemErrorTags = [];
+          }
+  
+          // Assign itemErrorTags to itemErrorTags
+          item_details.itemErrorTags.push(...itemErrorTags);
+  
+          // Add the update operation to the bulk request body
+          bulkBody.push({
+            update: {
+              _index: hit._index,
+              _id: hit._id
+            }
+          });
+  
+          bulkBody.push({
+            doc: {
+              itemErrorTags: item_details.itemErrorTags
+            }
+          });
+        });
+      }
+  
+      // Execute the bulk update
+      const bulkResponse = await client.bulk({ body: bulkBody });
+  
+      return bulkResponse;
+  
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  async addProviderErrorTags(items) {
+    try {
+      if (!Array.isArray(items) || items.length === 0) {
+        throw new Error('Invalid input: items should be a non-empty array.');
+      }
+  
+      const bulkBody = [];
+  
+      for (const item of items) {
+        const { providerId, providerErrorTags } = item;
+  
+        if (!providerId || !Array.isArray(providerErrorTags)) {
+          throw new Error('Invalid input: providerId should be a string and providerErrorTags should be an array.');
+        }
+  
+        const query_obj = {
+          query: {
+            term: {
+              "provider_details.id": providerId
+            }
+          }
+        };
+  
+        const queryResults = await client.search({
+          index: 'items',
+          body: query_obj,
+        });
+  
+        if (queryResults.hits.hits.length === 0) {
+          throw new Error(`Provider not found: ${providerId}`);
+        }
+  
+        queryResults.hits.hits.forEach(hit => {
+          const item_details = hit._source;
+  
+          if (!Array.isArray(item_details.providerErrorTags)) {
+            item_details.providerErrorTags = [];
+          }
+  
+          item_details.providerErrorTags.push(...providerErrorTags);
+  
+          bulkBody.push({
+            update: {
+              _index: hit._index,
+              _id: hit._id
+            }
+          });
+  
+          bulkBody.push({
+            doc: {
+              providerErrorTags: item_details.providerErrorTags
+            }
+          });
+        });
+      }
+  
+      const bulkResponse = await client.bulk({ body: bulkBody });
+  
+      return bulkResponse;
+  
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  async addSellerErrorTags(items) {
+    try {
+      if (!Array.isArray(items) || items.length === 0) {
+        throw new Error('Invalid input: items should be a non-empty array.');
+      }
+  
+      const bulkBody = [];
+  
+      for (const item of items) {
+        const { sellerId, sellerErrorTags } = item;
+  
+        if (!sellerId || !Array.isArray(sellerErrorTags)) {
+          throw new Error('Invalid input: sellerId should be a string and sellerErrorTags should be an array.');
+        }
+  
+        const query_obj = {
+          query: {
+            term: {
+              "context.bpp_id": sellerId
+            }
+          }
+        };
+  
+        const queryResults = await client.search({
+          index: 'items',
+          body: query_obj,
+        });
+  
+        if (queryResults.hits.hits.length === 0) {
+          throw new Error(`Seller not found: ${sellerId}`);
+        }
+  
+        queryResults.hits.hits.forEach(hit => {
+          const item_details = hit._source;
+  
+          if (!Array.isArray(item_details.sellerErrorTags)) {
+            item_details.sellerErrorTags = [];
+          }
+  
+          item_details.sellerErrorTags.push(...sellerErrorTags);
+  
+          bulkBody.push({
+            update: {
+              _index: hit._index,
+              _id: hit._id
+            }
+          });
+  
+          bulkBody.push({
+            doc: {
+              sellerErrorTags: item_details.sellerErrorTags
+            }
+          });
+        });
+      }
+  
+      const bulkResponse = await client.bulk({ body: bulkBody });
+  
+      return bulkResponse;
+  
+    } catch (err) {
+      throw err;
+    }
+  }
 }
 
 export default SearchService;
