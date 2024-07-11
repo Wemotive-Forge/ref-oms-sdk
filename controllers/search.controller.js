@@ -282,9 +282,14 @@ class SearchController {
     }
 
     addItemErrorTags(req, res, next) {
-        const { itemId, itemErrorTags } = req.body;
-
-        searchService.addItemErrorTags(itemId, itemErrorTags).then(result => {
+        const items = req.body;
+    
+        // Ensure items is an array
+        if (!Array.isArray(items) || items.length === 0) {
+            return next(new Error('Invalid input: items should be a non-empty array.'));
+        }
+    
+        searchService.addItemErrorTags(items).then(result => {
             if (!result) {
                 throw new NoRecordFoundError('No result found');
             } else {
@@ -296,27 +301,36 @@ class SearchController {
     }
 
     addProviderErrorTags(req, res, next) {
-        const { itemId, providerErrorTags } = req.body;
-
-        searchService.addProviderErrorTags(itemId, providerErrorTags).then(result => {
-            if(!result) {
-                throw new NoRecordFoundError('No Result Found');
-            } else {
-                res.json(result);
-            }
+        const items = req.body;
+      
+        if (!Array.isArray(items) || items.length === 0) {
+          return next(new Error('Invalid input: items should be a non-empty array.'));
+        }
+      
+        searchService.addProviderErrorTags(items).then(result => {
+          if (!result) {
+            throw new NoRecordFoundError('No result found');
+          } else {
+            res.json(result);
+          }
         }).catch(err => {
-            next(err);
-        })
-    }
-    addSellerErrorTags(req, res, next) {
-        const { itemId, sellerErrorTags } = req.body;
-
-        searchService.addSellerErrorTags(itemId, sellerErrorTags).then(result => {
-            if(!result) {
-                throw new NoRecordFoundError('No Result Found');
-            } else {
-                res.json(result);
-            }
+          next(err);
+        });
+      }
+      
+      addSellerErrorTags(req, res, next) {
+        const items = req.body;
+      
+        if (!Array.isArray(items) || items.length === 0) {
+          return next(new Error('Invalid input: items should be a non-empty array.'));
+        }
+      
+        searchService.addSellerErrorTags(items).then(result => {
+          if (!result) {
+            throw new NoRecordFoundError('No result found');
+          } else {
+            res.json(result);
+          }
         }).catch(err => {
             next(err);
         })

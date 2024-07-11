@@ -1168,171 +1168,202 @@ class SearchService {
     }
   }
 
-  async addItemErrorTags(itemId, itemErrorTags = []) {
+  async addItemErrorTags(items) {
     try {
-      // Construct the query to match the item by itemId
-      const matchQuery = [
-        {
-          match: {
-            id: itemId,
-          },
-        },
-      ];
-  
-      const query_obj = {
-        bool: {
-          must: matchQuery,
-        },
-      };
-  
-      // Search for the item
-      const queryResults = await client.search({
-        index: 'items',
-        body: {
-          query: query_obj,
-        },
-      });
-  
-      if (queryResults.hits.hits.length === 0) {
-        throw new Error('Item not found');
+      // Check if items is an array and not empty
+      if (!Array.isArray(items) || items.length === 0) {
+        throw new Error('Invalid input: items should be a non-empty array.');
       }
   
-      const item_details = queryResults.hits.hits[0]._source;
-      const indexName = queryResults.hits.hits[0]._index;
+      const bulkBody = [];
   
-      // Check if itemErrorTags exists, if not initialize it as an empty array
-      if (!item_details.itemErrorTags) {
-        item_details.itemErrorTags = [];
+      for (const item of items) {
+        const { itemId, itemErrorTags } = item;
+  
+        if (!itemId || !Array.isArray(itemErrorTags)) {
+          throw new Error('Invalid input: itemId should be a string and itemErrorTags should be an array.');
+        }
+  
+        // Construct the query to match the item by itemId
+        const query_obj = {
+          query: {
+            term: {
+              id: itemId
+            }
+          }
+        };
+  
+        // Search for the item
+        const queryResults = await client.search({
+          index: 'items',
+          body: query_obj,
+        });
+  
+        if (queryResults.hits.hits.length === 0) {
+          throw new Error(`Item not found: ${itemId}`);
+        }
+  
+        queryResults.hits.hits.forEach(hit => {
+          const item_details = hit._source;
+  
+          // Check if itemErrorTags exists, if not initialize it as an empty array
+          if (!Array.isArray(item_details.itemErrorTags)) {
+            item_details.itemErrorTags = [];
+          }
+  
+          // Assign itemErrorTags to itemErrorTags
+          item_details.itemErrorTags.push(...itemErrorTags);
+  
+          // Add the update operation to the bulk request body
+          bulkBody.push({
+            update: {
+              _index: hit._index,
+              _id: hit._id
+            }
+          });
+  
+          bulkBody.push({
+            doc: {
+              itemErrorTags: item_details.itemErrorTags
+            }
+          });
+        });
       }
   
-      // Assign itemErrorTags to itemErrorTags
-      item_details.itemErrorTags.push(...itemErrorTags);
+      // Execute the bulk update
+      const bulkResponse = await client.bulk({ body: bulkBody });
   
-      // Save the updated item details back to Elasticsearch
-      const savedRes = await client.index({
-        index: indexName,
-        id: item_details.id,
-        body: item_details,
-      });
-  
-      console.log('SAVED RESPONSE', savedRes);
-  
-      // Return the itemErrorTags in the response
-      return savedRes;
+      return bulkResponse;
   
     } catch (err) {
       throw err;
     }
   }
 
-  async addProviderErrorTags(itemId, providerErrorTags = []) {
+  async addProviderErrorTags(items) {
     try {
-      // Construct the query to match the item by itemId
-      const matchQuery = [
-        {
-          match: {
-            id: itemId,
-          },
-        },
-      ];
-  
-      const query_obj = {
-        bool: {
-          must: matchQuery,
-        },
-      };
-  
-      // Search for the item
-      const queryResults = await client.search({
-        index: 'items',
-        body: {
-          query: query_obj,
-        },
-      });
-  
-      if (queryResults.hits.hits.length === 0) {
-        throw new Error('Item not found');
+      if (!Array.isArray(items) || items.length === 0) {
+        throw new Error('Invalid input: items should be a non-empty array.');
       }
   
-      const item_details = queryResults.hits.hits[0]._source;
-      const indexName = queryResults.hits.hits[0]._index;
+      const bulkBody = [];
   
-      // Check if providerErrorTags exists, if not initialize it as an empty array
-      if (!item_details.providerErrorTags) {
-        item_details.providerErrorTags = [];
+      for (const item of items) {
+        const { itemId, providerErrorTags } = item;
+  
+        if (!itemId || !Array.isArray(providerErrorTags)) {
+          throw new Error('Invalid input: itemId should be a string and providerErrorTags should be an array.');
+        }
+  
+        const query_obj = {
+          query: {
+            term: {
+              id: itemId
+            }
+          }
+        };
+  
+        const queryResults = await client.search({
+          index: 'items',
+          body: query_obj,
+        });
+  
+        if (queryResults.hits.hits.length === 0) {
+          throw new Error(`Item not found: ${itemId}`);
+        }
+  
+        queryResults.hits.hits.forEach(hit => {
+          const item_details = hit._source;
+  
+          if (!Array.isArray(item_details.providerErrorTags)) {
+            item_details.providerErrorTags = [];
+          }
+  
+          item_details.providerErrorTags.push(...providerErrorTags);
+  
+          bulkBody.push({
+            update: {
+              _index: hit._index,
+              _id: hit._id
+            }
+          });
+  
+          bulkBody.push({
+            doc: {
+              providerErrorTags: item_details.providerErrorTags
+            }
+          });
+        });
       }
   
-      // Assign providerErrorTags to item's providerErrorTags
-      item_details.providerErrorTags.push(...providerErrorTags);
+      const bulkResponse = await client.bulk({ body: bulkBody });
   
-      // Save the updated item details back to Elasticsearch
-      const savedRes = await client.index({
-        index: indexName,
-        id: item_details.id,
-        body: item_details,
-      });
-  
-      console.log('SAVED RESPONSE', savedRes);
-  
-      // Return the providerErrorTags in the response
-      return savedRes;
+      return bulkResponse;
   
     } catch (err) {
       throw err;
     }
   }
 
-  async addSellerErrorTags(itemId, sellerErrorTags = []) {
+  async addSellerErrorTags(items) {
     try {
-      // Construct the query to match the item by itemId
-      const matchQuery = [
-        {
-          match: {
-            id: itemId,
-          },
-        },
-      ];
-  
-      const query_obj = {
-        bool: {
-          must: matchQuery,
-        },
-      };
-  
-      // Search for the item
-      const queryResults = await client.search({
-        index: 'items',
-        body: {
-          query: query_obj,
-        },
-      });
-  
-      if (queryResults.hits.hits.length === 0) {
-        throw new Error('Item not found');
+      if (!Array.isArray(items) || items.length === 0) {
+        throw new Error('Invalid input: items should be a non-empty array.');
       }
   
-      const item_details = queryResults.hits.hits[0]._source;
-      const indexName = queryResults.hits.hits[0]._index;
+      const bulkBody = [];
   
-      // Check if sellerErrorTags exists, if not initialize it as an empty array
-      if (!item_details.sellerErrorTags) {
-        item_details.sellerErrorTags = [];
+      for (const item of items) {
+        const { itemId, sellerErrorTags } = item;
+  
+        if (!itemId || !Array.isArray(sellerErrorTags)) {
+          throw new Error('Invalid input: itemId should be a string and sellerErrorTags should be an array.');
+        }
+  
+        const query_obj = {
+          query: {
+            term: {
+              id: itemId
+            }
+          }
+        };
+  
+        const queryResults = await client.search({
+          index: 'items',
+          body: query_obj,
+        });
+  
+        if (queryResults.hits.hits.length === 0) {
+          throw new Error(`Item not found: ${itemId}`);
+        }
+  
+        queryResults.hits.hits.forEach(hit => {
+          const item_details = hit._source;
+  
+          if (!Array.isArray(item_details.sellerErrorTags)) {
+            item_details.sellerErrorTags = [];
+          }
+  
+          item_details.sellerErrorTags.push(...sellerErrorTags);
+  
+          bulkBody.push({
+            update: {
+              _index: hit._index,
+              _id: hit._id
+            }
+          });
+  
+          bulkBody.push({
+            doc: {
+              sellerErrorTags: item_details.sellerErrorTags
+            }
+          });
+        });
       }
   
-      // Assign sellerErrorTags to item's sellerErrorTags
-      item_details.sellerErrorTags.push(...sellerErrorTags);
+      const bulkResponse = await client.bulk({ body: bulkBody });
   
-      // Save the updated item details back to Elasticsearch
-      const savedRes = await client.index({
-        index: indexName,
-        id: item_details.id,
-        body: item_details,
-      });
-  
-      console.log('SAVED RESPONSE', savedRes);
-  
-      // Return the sellerErrorTags in the response
-      return savedRes;
+      return bulkResponse;
   
     } catch (err) {
       throw err;
