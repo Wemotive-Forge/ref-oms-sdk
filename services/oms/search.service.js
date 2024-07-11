@@ -203,14 +203,13 @@ class SearchService {
     const grouped = _.groupBy(buckets, item => item.key["context.bpp_id"]);
     const flaggedGrouped = _.groupBy(flaggedBuckets, item => item.key["context.bpp_id"]);
     
-    const result = _.map(grouped, (group, key) => {
-      console.log(flaggedGrouped[key]);  
+    const result = _.map(grouped, (group, key) => { 
       return {
             bpp_id: key,
             item_count: group[0].unique_items.value,
             provider_count: group[0].unique_providers.value,
-            flagged_items_count: flaggedGrouped[key] && flaggedGrouped[key][0]?.flagged_unique_items?.value,
-            flagged_providers_count: flaggedGrouped[key] && flaggedGrouped[key][0]?.flagged_unique_providers?.value 
+            flagged_items_count: flaggedGrouped[key] && flaggedGrouped[key][0]?.flagged_unique_items?.value || 0,
+            flagged_providers_count: flaggedGrouped[key] && flaggedGrouped[key][0]?.flagged_unique_providers?.value || 0 
         }
     });
     
