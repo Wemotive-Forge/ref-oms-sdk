@@ -1193,6 +1193,15 @@ class SearchService {
           is_first: true,
         },
       });
+
+      // Add flag filter
+      if (searchRequest.flag !== undefined) {
+        matchQuery.push({
+          match: {
+            flagged: searchRequest.flag,
+          },
+        });
+      }
   
       // Construct the query object
       let query_obj = {
@@ -1331,6 +1340,15 @@ class SearchService {
                 is_first: true,
             },
         });
+
+      // Add flag filter
+      if (searchRequest.flag !== undefined) {
+        matchQuery.push({
+          match: {
+            flagged: searchRequest.flag,
+          },
+        });
+      }
 
         let query_obj = {
             bool: {
