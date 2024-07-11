@@ -62,4 +62,16 @@ router.get(
     '/offers',  searchController.getOffers,
 );
 
+router.get(
+    '/seller-details', searchController.getSellerDetails
+);
+
+router.get(
+    '/listProviders', searchController.listProviders
+)
+
+router.get(
+    '/displayItems', searchController.displayItems
+)
+
 export default router;
