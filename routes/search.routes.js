@@ -62,4 +62,12 @@ router.get(
     '/offers',  searchController.getOffers,
 );
 
+router.post(
+    '/addErrorTags', searchController.addErrorTags,
+)
+
+router.get(
+    '/searchErrorTags', searchController.searchItemsWithErrorTags,
+)
+
 export default router;

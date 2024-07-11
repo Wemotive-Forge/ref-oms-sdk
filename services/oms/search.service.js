@@ -42,6 +42,18 @@ class SearchService {
         });
       }
 
+    // Dynamic attribute filters
+    for (const key in searchRequest) {
+      if (key.startsWith('product_attr_{{') && key.endsWith('}}')) {
+        const attributeCode = key.substring(15, key.length - 2); // Extract attribute code dynamically
+        matchQuery.push({
+          match: {
+            [`attributes.${attributeCode}`]: searchRequest[key],
+          },
+        });
+      }
+    }
+
       // for variants we set is_first = true
       matchQuery.push({
         match: {
@@ -318,7 +330,7 @@ class SearchService {
     }
   }
 
-  async getItemDetails(searchRequest = {}, targetLanguage = "en", errorTags = []) {
+  async getItemDetails(searchRequest = {}, targetLanguage = "en") {
     try {
       // providerIds=ondc-mock-server-dev.thewitslab.com_ONDC:RET10_ondc-mock-server-dev.thewitslab.com
       let matchQuery = [];
@@ -344,31 +356,14 @@ class SearchService {
       };
 
       let queryResults = await client.search({
+        index: 'items',
         query: query_obj,
       });
 
       let item_details = null;
-      let indexName = null; // Initialize a variable to store the index name
       if (queryResults.hits.hits.length > 0) {
         item_details = queryResults.hits.hits[0]._source; // Return the source of the first hit
-        indexName = queryResults.hits.hits[0]._index; // Get the index name from the first hit
-        console.log("Index Name", indexName);
         item_details.customisation_items = [];
-        item_details.errorTags = errorTags; // Add errorTags from params
-
-        // Check for ImageMissing
-        if (!item_details.item_details.descriptor.images || item_details.item_details.descriptor.images.length === 0) {
-          if (!errorTags.includes('ImageMissing')) {
-            errorTags.push('ImageMissing');
-          }
-        }
-
-        //Check for NameMissing
-        if(!item_details.item_details.descriptor.name){
-          if(!errorTags.includes('NameMissing')){
-            errorTags.push('NameMissing')
-          }
-        }
 
         // add variant details if available
         if (item_details.item_details.parent_item_id) {
@@ -451,35 +446,6 @@ class SearchService {
             (hit) => hit._source,
           );
         }
-        // Save the item details back to Elasticsearch with errorTags
-        let savedRes = await client.index({
-            index: indexName, // Use the dynamically retrieved index name
-            id: item_details.id,
-            body: item_details,
-        });
-
-        console.log('SAVED RESPONSE', savedRes);
-
-        // Retrieve all items where errorTags include 'ImageMissing', 'NameMissing'
-        let errorTagQuery = {
-            bool: {
-                must: [
-                    {
-                        terms: {
-                            "errorTags": ["ImageMissing", "NameMissing"]
-                        }
-                    }
-                ]
-            }
-        };
-
-        let errorTagResults = await client.search({
-            index: indexName, // Use the dynamically retrieved index name
-            query: errorTagQuery,
-        });
-
-        let itemsWithImageMissing = errorTagResults.hits.hits.map((hit) => hit._source);
-        console.log("Items With Image Missing:", itemsWithImageMissing);
       }
 
       //            console.log("itemdetails--->",item_details)
@@ -1059,6 +1025,105 @@ class SearchService {
     }
   }
 
+  async addErrorTags(itemId, errorTags = []) {
+    try {
+      let matchQuery = [
+        {
+          match: {
+            id: itemId,
+          },
+        },
+      ];
+
+      let query_obj = {
+        bool: {
+          must: matchQuery,
+        },
+      };
+
+      let queryResults = await client.search({
+        index: 'items',
+        body: {
+          query: query_obj,
+        },
+      });
+
+      if (queryResults.hits.hits.length === 0) {
+        throw new Error('Item not found');
+      }
+
+      let item_details = queryResults.hits.hits[0]._source;
+      let indexName = queryResults.hits.hits[0]._index;
+
+      // Convert errorTags to the new format
+      let formattedErrorTags = errorTags.map(tag => ({
+        type: tag.type,
+        code: tag.code,
+        path: tag.path,
+        message: tag.message
+      }));
+
+      item_details.errorTags = formattedErrorTags;
+
+      let savedRes = await client.index({
+        index: indexName,
+        id: item_details.id,
+        body: item_details,
+      });
+
+      console.log('SAVED RESPONSE', savedRes);
+
+      return savedRes;
+
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  async searchItemsWithErrorTags(type, code) {
+    try {
+      const mustQueries = [];
+
+      if (type) {
+        mustQueries.push({ term: { 'errorTags.type': type } });
+      }
+
+      if (code) {
+        mustQueries.push({ term: { 'errorTags.code': code } });
+      }
+
+      const query_obj = {
+        bool: {
+          must: [
+            {
+              nested: {
+                path: 'errorTags',
+                query: {
+                  bool: {
+                    must: mustQueries
+                  }
+                }
+              }
+            }
+          ]
+        }
+      };
+
+      const queryResults = await client.search({
+        index: 'items',
+        body: {
+          query: query_obj
+        }
+      });
+
+      return queryResults.hits.hits.map(hit => ({
+        id: hit._id,
+        item: hit._source
+      }));
+    } catch (err) {
+      throw err;
+    }
+  }
 }
 
 export default SearchService;
