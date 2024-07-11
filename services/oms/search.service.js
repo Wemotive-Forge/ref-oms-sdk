@@ -1341,7 +1341,12 @@ class SearchService {
                 after: searchRequest.afterKey ? { provider_id: searchRequest.afterKey.provider_id, location_id: searchRequest.afterKey.location_id } : undefined
               },
               aggs: {
-                item_count: { value_count: { field: 'item_details.id' } }, // Count items for each provider-location combination
+                item_count: {
+                  cardinality: {
+                    field: 'item_details.id'
+                  }
+                }, // Count items for each provider-location combination
+                flagged_count: { filter: { term: { flagged: true } } }, 
                 top_hits: { top_hits: { size: 1 } } // Get top hit for additional details
               }
             }
@@ -1352,6 +1357,7 @@ class SearchService {
       // Extract the provider data and aggregations
       let providers = queryResults.aggregations.unique_provider_location.buckets.flatMap((bucket) => {
         const itemCount = bucket.item_count.value;
+        const flaggedItemCount = bucket.flagged_count.doc_count;
         const topHit = bucket.top_hits.hits.hits[0]?._source; // Safely accessing top_hits
 
         if (!topHit) {
@@ -1363,8 +1369,10 @@ class SearchService {
         return {
           name: topHit.context.bpp_id, // BPP ID as name
           provider: topHit.provider_details.descriptor.name, // Provider name
+          city: topHit.location_details.address.city,
           seller_app: topHit.context.bpp_id, // Seller app
           item_count: itemCount, // Number of items
+          flagged_item_count: flaggedItemCount,
           location_id: locationId, // Location ID
         };
       }).filter(provider => provider !== null); // Filter out null values
@@ -1445,7 +1453,7 @@ class SearchService {
       // Ensure only first items are considered
       matchQuery.push({
         match: {
-          is_first: true,
+          is_first: false,
         },
       });
 
