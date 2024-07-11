@@ -280,6 +280,47 @@ class SearchController {
             next(err);
         });
     }
+
+    addItemErrorTags(req, res, next) {
+        const { itemId, itemErrorTags } = req.body;
+
+        searchService.addItemErrorTags(itemId, itemErrorTags).then(result => {
+            if (!result) {
+                throw new NoRecordFoundError('No result found');
+            } else {
+                res.json(result);
+            }
+        }).catch(err => {
+            next(err); // Let the global error handler middleware handle the error
+        });
+    }
+
+    addProviderErrorTags(req, res, next) {
+        const { itemId, providerErrorTags } = req.body;
+
+        searchService.addProviderErrorTags(itemId, providerErrorTags).then(result => {
+            if(!result) {
+                throw new NoRecordFoundError('No Result Found');
+            } else {
+                res.json(result);
+            }
+        }).catch(err => {
+            next(err);
+        })
+    }
+    addSellerErrorTags(req, res, next) {
+        const { itemId, sellerErrorTags } = req.body;
+
+        searchService.addSellerErrorTags(itemId, sellerErrorTags).then(result => {
+            if(!result) {
+                throw new NoRecordFoundError('No Result Found');
+            } else {
+                res.json(result);
+            }
+        }).catch(err => {
+            next(err);
+        })
+    }
 }
 
 export default SearchController;
