@@ -103,6 +103,77 @@ class SearchService {
     }
   }
 
+  async getSellers(searchRequest = {}, targetLanguage = "en") {
+    let afterKey;
+    if (searchRequest.after) {
+        afterKey = {
+            "context.bpp_id": searchRequest.after
+        }
+    }
+    const allSellers = await client.search({
+        index: 'items',
+        query: {
+            bool: {
+                must: [{
+                    match: {
+                        "context.domain": searchRequest.domain
+                    }
+                }]
+            }
+        },
+        size: 0,
+        aggs: {
+            unique: {
+
+                composite: {
+                    after: afterKey,
+                    sources: {
+                        "context.bpp_id": {
+                            terms: {
+                                "field": "context.bpp_id"
+                            }
+                        }
+                    },
+                    size: searchRequest.limit
+                },
+                aggs: {
+                    unique_providers: {
+                        cardinality: {
+                            field: 'provider_details.id'
+                        }
+                    },
+                    unique_items: {
+                        cardinality: {
+                            field: 'item_details.id'
+                        }
+                    }
+                }
+            }
+        }
+
+    });
+
+    const {
+        buckets
+    } = allSellers.aggregations.unique;
+    const grouped = _.groupBy(buckets, item => item.key["context.bpp_id"]);
+
+
+    const result = _.map(grouped, (group, key) => {
+        return {
+            bpp_id: key,
+            item_count: group[0].unique_items.value,
+            provider_count: group[0].unique_providers.value
+        }
+    });
+    return {
+        sellers: result,
+        _after: allSellers.aggregations.unique.after_key["context.bpp_id"]
+    };
+
+}
+
+
   async globalSearchItems(searchRequest = {}, targetLanguage = "en") {
     try {
       // providerIds=ondc-mock-server-dev.thewitslab.com_ONDC:RET10_ondc-mock-server-dev.thewitslab.com
@@ -332,7 +403,7 @@ class SearchService {
       if (searchRequest.id) {
         matchQuery.push({
           match: {
-            id: searchRequest.id,
+            _id: searchRequest.id,
           },
         });
       }
@@ -979,6 +1050,44 @@ class SearchService {
       throw err;
     }
   }
+
+  async flagSeller(searchRequest, targetLanguage="en"){
+
+    searchRequest.flagged = JSON.parse(searchRequest.flagged.toLowerCase());
+      
+    const bulkBody = [];
+    const searchResults = await client.search({
+      index: 'items',
+      body: {
+        query: {
+          term: {
+            'context.bpp_id': searchRequest.bpp_id
+          }
+        }
+      }
+    });
+    
+    searchResults.hits.hits.forEach(hit => {
+      bulkBody.push({
+        update: {
+          _index: "items",
+          _id: hit._id
+        }
+      });
+      
+      bulkBody.push({
+        doc: {
+          flagged: searchRequest.flagged
+        }
+      });
+    });
+
+    const bulkResponse  = await client.bulk({body:bulkBody});
+    
+    return bulkResponse;
+    
+  }
+
 
   async  getOffers(searchRequest, targetLanguage = "en") {
     try {

@@ -248,6 +248,23 @@ class SearchController {
         });
     }
 
+    getSellerDetails(req, res, next) {
+        const searchRequest = req.query;
+        console.log(
+          "Get Seller Details's Request =========>",
+          JSON.stringify(searchRequest)
+        );
+        searchService.getSellers(searchRequest).then(response => {
+            if(!response || response === null)
+                throw new NoRecordFoundError("No result found");
+            else
+                res.json(response);
+        }).catch((err) => {
+            next(err);
+        });
+        
+      }
+
     
     getOffers(req, res, next) {
         const searchRequest = req.query;
