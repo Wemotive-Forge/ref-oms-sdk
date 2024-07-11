@@ -409,7 +409,7 @@ class SearchService {
       if (searchRequest.id) {
         matchQuery.push({
           match: {
-            _id: searchRequest.id,
+            id: searchRequest.id,
           },
         });
       }
@@ -1058,39 +1058,29 @@ class SearchService {
   }
 
   async flagSeller(searchRequest, targetLanguage="en"){
-
-    searchRequest.flagged = JSON.parse(searchRequest.flagged.toLowerCase());
-      
-    const bulkBody = [];
-    const searchResults = await client.search({
+    
+    let key;
+    switch(searchRequest.type){
+      case "seller":
+        key = "context.bpp_id"
+        break;
+      case "item":
+        key = "item_details.id"
+        break;
+      case "provider":
+        key = "provider_details.id"
+    }
+    const searchResults = await client.updateByQuery({
       index: 'items',
-      body: {
-        query: {
-          term: {
-            'context.bpp_id': searchRequest.bpp_id
-          }
+      query: {
+        term: {
+          [key]: searchRequest.id
         }
-      }
-    });
-    
-    searchResults.hits.hits.forEach(hit => {
-      bulkBody.push({
-        update: {
-          _index: "items",
-          _id: hit._id
-        }
-      });
-      
-      bulkBody.push({
-        doc: {
-          flagged: searchRequest.flagged
-        }
-      });
+      },
+      "script": { "inline": `ctx._source.flagged = ${searchRequest.flagged}`}
     });
 
-    const bulkResponse  = await client.bulk({body:bulkBody});
-    
-    return bulkResponse;
+    return searchResults;
     
   }
 
