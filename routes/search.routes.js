@@ -63,7 +63,7 @@ router.get(
 );
 
 router.get(
-    '/seller-details', searchController.getSellerDetails
+    '/seller', searchController.getSellerDetails
 );
 
 router.put(
