@@ -1168,6 +1168,176 @@ class SearchService {
     }
   }
 
+  async addItemErrorTags(itemId, itemErrorTags = []) {
+    try {
+      // Construct the query to match the item by itemId
+      const matchQuery = [
+        {
+          match: {
+            id: itemId,
+          },
+        },
+      ];
+  
+      const query_obj = {
+        bool: {
+          must: matchQuery,
+        },
+      };
+  
+      // Search for the item
+      const queryResults = await client.search({
+        index: 'items',
+        body: {
+          query: query_obj,
+        },
+      });
+  
+      if (queryResults.hits.hits.length === 0) {
+        throw new Error('Item not found');
+      }
+  
+      const item_details = queryResults.hits.hits[0]._source;
+      const indexName = queryResults.hits.hits[0]._index;
+  
+      // Check if itemErrorTags exists, if not initialize it as an empty array
+      if (!item_details.itemErrorTags) {
+        item_details.itemErrorTags = [];
+      }
+  
+      // Assign itemErrorTags to itemErrorTags
+      item_details.itemErrorTags.push(...itemErrorTags);
+  
+      // Save the updated item details back to Elasticsearch
+      const savedRes = await client.index({
+        index: indexName,
+        id: item_details.id,
+        body: item_details,
+      });
+  
+      console.log('SAVED RESPONSE', savedRes);
+  
+      // Return the itemErrorTags in the response
+      return savedRes;
+  
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  async addProviderErrorTags(itemId, providerErrorTags = []) {
+    try {
+      // Construct the query to match the item by itemId
+      const matchQuery = [
+        {
+          match: {
+            id: itemId,
+          },
+        },
+      ];
+  
+      const query_obj = {
+        bool: {
+          must: matchQuery,
+        },
+      };
+  
+      // Search for the item
+      const queryResults = await client.search({
+        index: 'items',
+        body: {
+          query: query_obj,
+        },
+      });
+  
+      if (queryResults.hits.hits.length === 0) {
+        throw new Error('Item not found');
+      }
+  
+      const item_details = queryResults.hits.hits[0]._source;
+      const indexName = queryResults.hits.hits[0]._index;
+  
+      // Check if providerErrorTags exists, if not initialize it as an empty array
+      if (!item_details.providerErrorTags) {
+        item_details.providerErrorTags = [];
+      }
+  
+      // Assign providerErrorTags to item's providerErrorTags
+      item_details.providerErrorTags.push(...providerErrorTags);
+  
+      // Save the updated item details back to Elasticsearch
+      const savedRes = await client.index({
+        index: indexName,
+        id: item_details.id,
+        body: item_details,
+      });
+  
+      console.log('SAVED RESPONSE', savedRes);
+  
+      // Return the providerErrorTags in the response
+      return savedRes;
+  
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  async addSellerErrorTags(itemId, sellerErrorTags = []) {
+    try {
+      // Construct the query to match the item by itemId
+      const matchQuery = [
+        {
+          match: {
+            id: itemId,
+          },
+        },
+      ];
+  
+      const query_obj = {
+        bool: {
+          must: matchQuery,
+        },
+      };
+  
+      // Search for the item
+      const queryResults = await client.search({
+        index: 'items',
+        body: {
+          query: query_obj,
+        },
+      });
+  
+      if (queryResults.hits.hits.length === 0) {
+        throw new Error('Item not found');
+      }
+  
+      const item_details = queryResults.hits.hits[0]._source;
+      const indexName = queryResults.hits.hits[0]._index;
+  
+      // Check if sellerErrorTags exists, if not initialize it as an empty array
+      if (!item_details.sellerErrorTags) {
+        item_details.sellerErrorTags = [];
+      }
+  
+      // Assign sellerErrorTags to item's sellerErrorTags
+      item_details.sellerErrorTags.push(...sellerErrorTags);
+  
+      // Save the updated item details back to Elasticsearch
+      const savedRes = await client.index({
+        index: indexName,
+        id: item_details.id,
+        body: item_details,
+      });
+  
+      console.log('SAVED RESPONSE', savedRes);
+  
+      // Return the sellerErrorTags in the response
+      return savedRes;
+  
+    } catch (err) {
+      throw err;
+    }
+  }
 }
 
 export default SearchService;
