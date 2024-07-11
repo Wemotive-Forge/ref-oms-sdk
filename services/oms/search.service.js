@@ -1249,16 +1249,16 @@ class SearchService {
       const bulkBody = [];
   
       for (const item of items) {
-        const { itemId, providerErrorTags } = item;
+        const { providerId, providerErrorTags } = item;
   
-        if (!itemId || !Array.isArray(providerErrorTags)) {
-          throw new Error('Invalid input: itemId should be a string and providerErrorTags should be an array.');
+        if (!providerId || !Array.isArray(providerErrorTags)) {
+          throw new Error('Invalid input: providerId should be a string and providerErrorTags should be an array.');
         }
   
         const query_obj = {
           query: {
             term: {
-              id: itemId
+              "provider_details.id": providerId
             }
           }
         };
@@ -1269,7 +1269,7 @@ class SearchService {
         });
   
         if (queryResults.hits.hits.length === 0) {
-          throw new Error(`Item not found: ${itemId}`);
+          throw new Error(`Provider not found: ${providerId}`);
         }
   
         queryResults.hits.hits.forEach(hit => {
@@ -1314,16 +1314,16 @@ class SearchService {
       const bulkBody = [];
   
       for (const item of items) {
-        const { itemId, sellerErrorTags } = item;
+        const { sellerId, sellerErrorTags } = item;
   
-        if (!itemId || !Array.isArray(sellerErrorTags)) {
-          throw new Error('Invalid input: itemId should be a string and sellerErrorTags should be an array.');
+        if (!sellerId || !Array.isArray(sellerErrorTags)) {
+          throw new Error('Invalid input: sellerId should be a string and sellerErrorTags should be an array.');
         }
   
         const query_obj = {
           query: {
             term: {
-              id: itemId
+              "context.bpp_id": sellerId
             }
           }
         };
@@ -1334,7 +1334,7 @@ class SearchService {
         });
   
         if (queryResults.hits.hits.length === 0) {
-          throw new Error(`Item not found: ${itemId}`);
+          throw new Error(`Seller not found: ${sellerId}`);
         }
   
         queryResults.hits.hits.forEach(hit => {
