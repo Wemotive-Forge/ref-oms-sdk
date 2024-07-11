@@ -105,14 +105,15 @@ class SearchService {
 
   async getSellers(searchRequest = {}, targetLanguage = "en") {
     let afterKey;
+    let query;
     if (searchRequest.after) {
         afterKey = {
             "context.bpp_id": searchRequest.after
         }
     }
-    const allSellers = await client.search({
-        index: 'items',
-        query: {
+
+    if (searchRequest.domain){
+      query = {
             bool: {
                 must: [{
                     match: {
@@ -120,7 +121,12 @@ class SearchService {
                     }
                 }]
             }
-        },
+      }
+    }
+
+    const allSellers = await client.search({
+        index: 'items',
+        query: query,
         size: 0,
         aggs: {
             unique: {

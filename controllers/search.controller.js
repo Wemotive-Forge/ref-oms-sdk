@@ -251,7 +251,7 @@ class SearchController {
     getSellerDetails(req, res, next) {
         const searchRequest = req.query;
         console.log(
-          "Get Seller Details's Request =========>",
+          "Got Seller Details's Request =========>",
           JSON.stringify(searchRequest)
         );
         searchService.getSellers(searchRequest).then(response => {
@@ -265,6 +265,21 @@ class SearchController {
         
       }
 
+    flagSeller(req,res,next){
+        const searchRequest = req.body;
+        console.log(
+            "Got Flag Request =========>",
+            JSON.stringify(searchRequest)
+        );
+        searchService.flagSeller(searchRequest).then(response => {
+            if(!response || response === null)
+                throw new NoRecordFoundError("No result found");
+            else
+                res.json(response);
+        }).catch((err) => {
+            next(err);
+        });
+    }
     
     getOffers(req, res, next) {
         const searchRequest = req.query;
