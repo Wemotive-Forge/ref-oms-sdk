@@ -1382,6 +1382,7 @@ class SearchService {
           return null; // Skip if topHit is undefined
         }
         console.log("BUCKET", bucket);
+        const locationId = bucket.key.location_id;
 
         return {
           provider_details: topHit.provider_details,
@@ -1390,6 +1391,7 @@ class SearchService {
           seller_app: topHit.context.bpp_id, // Seller app
           item_count: itemCount, // Number of items
           flagged_item_count: flaggedItemCount,
+          location_id: locationId,
           location: topHit.location_details.address.locality,
           flagged: topHit.flagged === true ? true : false,
         };
