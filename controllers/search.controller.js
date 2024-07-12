@@ -248,6 +248,39 @@ class SearchController {
         });
     }
 
+    getSellerDetails(req, res, next) {
+        const searchRequest = req.query;
+        console.log(
+          "Got Seller Details's Request =========>",
+          JSON.stringify(searchRequest)
+        );
+        searchService.getSellers(searchRequest).then(response => {
+            if(!response || response === null)
+                throw new NoRecordFoundError("No result found");
+            else
+                res.json(response);
+        }).catch((err) => {
+            next(err);
+        });
+        
+      }
+
+    flagSeller(req,res,next){
+        const searchRequest = req.body;
+        console.log(
+            "Got Flag Request =========>",
+            JSON.stringify(searchRequest)
+        );
+
+        searchService.flagSeller(searchRequest).then(response => {
+            if(!response || response === null)
+                throw new NoRecordFoundError("No result found");
+            else
+                res.json(response);
+        }).catch((err) => {
+            next(err);
+        });
+    }
     
     getOffers(req, res, next) {
         const searchRequest = req.query;
@@ -262,6 +295,99 @@ class SearchController {
         }).catch((err) => {
             next(err);
         });
+    }
+
+    listProviders(req, res, next) {
+        const searchRequest = req.query;
+
+        console.log({ searchRequest });
+        const headers = req.headers;
+
+        let targetLanguage = headers['targetlanguage'];
+
+        searchService.listProviders(searchRequest, targetLanguage)
+            .then(response => {
+                if (!response || response === null)
+                    throw new NoRecordFoundError("No result found");
+                else
+                    res.json(response);
+            })
+            .catch((err) => {
+                next(err);
+            });
+    }
+
+    displayItems(req, res, next) {
+        const searchRequest = req.query;
+        const headers = req.headers;
+        let targetLanguage = headers['targetlanguage'] || "en"; // Default to 'en' if not provided
+
+        searchService.displayItems(searchRequest, targetLanguage)
+            .then(response => {
+                if (!response) {
+                    throw new NoRecordFoundError("No items found");
+                } else {
+                    res.json(response);
+                }
+            })
+            .catch(err => {
+                next(err);
+            });
+    }
+
+    addItemErrorTags(req, res, next) {
+        const items = req.body;
+
+        // Ensure items is an array
+        if (!Array.isArray(items) || items.length === 0) {
+            return next(new Error('Invalid input: items should be a non-empty array.'));
+        }
+
+        searchService.addItemErrorTags(items).then(result => {
+            if (!result) {
+                throw new NoRecordFoundError('No result found');
+            } else {
+                res.json(result);
+            }
+        }).catch(err => {
+            next(err); // Let the global error handler middleware handle the error
+        });
+    }
+
+    addProviderErrorTags(req, res, next) {
+        const items = req.body;
+
+        if (!Array.isArray(items) || items.length === 0) {
+            return next(new Error('Invalid input: items should be a non-empty array.'));
+        }
+
+        searchService.addProviderErrorTags(items).then(result => {
+            if (!result) {
+                throw new NoRecordFoundError('No result found');
+            } else {
+                res.json(result);
+            }
+        }).catch(err => {
+            next(err);
+        });
+    }
+
+    addSellerErrorTags(req, res, next) {
+        const items = req.body;
+
+        if (!Array.isArray(items) || items.length === 0) {
+            return next(new Error('Invalid input: items should be a non-empty array.'));
+        }
+
+        searchService.addSellerErrorTags(items).then(result => {
+            if (!result) {
+                throw new NoRecordFoundError('No result found');
+            } else {
+                res.json(result);
+            }
+        }).catch(err => {
+            next(err);
+        })
     }
 }
 

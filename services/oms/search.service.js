@@ -1,5 +1,7 @@
 import _ from "lodash";
 import client from '../../database/elasticSearch.js';
+import NoRecordFoundError from "../../lib/errors/no-record-found.error.js";
+import BadRequestParameterError from "../../lib/errors/bad-request-parameter.error.js";
 
 class SearchService {
   isBppFilterSpecified(context = {}) {
@@ -102,6 +104,122 @@ class SearchService {
       throw err;
     }
   }
+
+  async getSellers(searchRequest = {}, targetLanguage = "en") {
+    let afterKey;
+    let query = {
+        bool: {
+            must: [{
+                match: {
+                    "context.domain": searchRequest.domain,
+                    "flagged": JSON.parse(searchRequest.flagged.toLowerCase())
+                }
+            }]
+        }
+    };
+    if (searchRequest.after) {
+        afterKey = {
+            "context.bpp_id": searchRequest.after
+        }
+    }
+
+    if (!searchRequest.domain) {
+        query.bool.must[0].match["context.domain"] = undefined;
+    }
+    const allSellersFlagged = await client.search({
+        index: 'items',
+        query: query,
+        size: 0,
+        aggs: {
+            unique: {
+                composite: {
+                    after: afterKey,
+                    sources: {
+                        "context.bpp_id": {
+                            terms: {
+                                "field": "context.bpp_id"
+                            }
+                        }
+                    },
+                    size: searchRequest.limit
+                },
+                aggs: {
+                    flagged_unique_providers: {
+                        cardinality: {
+                            field: 'provider_details.id'
+                        }
+                    },
+                    flagged_unique_items: {
+                        cardinality: {
+                            field: 'item_details.id'
+                        }
+                    }
+                }
+            }
+        }
+
+    });
+    query = undefined
+    const allSellers = await client.search({
+        index: 'items',
+        query: query,
+        size: 0,
+        aggs: {
+            unique: {
+
+                composite: {
+                    after: afterKey,
+                    sources: {
+                        "context.bpp_id": {
+                            terms: {
+                                "field": "context.bpp_id"
+                            }
+                        }
+                    },
+                    size: searchRequest.limit
+                },
+                aggs: {
+                    unique_providers: {
+                        cardinality: {
+                            field: 'provider_details.id'
+                        }
+                    },
+                    unique_items: {
+                        cardinality: {
+                            field: 'item_details.id'
+                        }
+                    }
+                }
+            }
+        }
+
+    });
+
+    const {
+        buckets
+    } = allSellers.aggregations.unique;
+
+    const { buckets : flaggedBuckets } = allSellersFlagged.aggregations.unique;
+    const grouped = _.groupBy(buckets, item => item.key["context.bpp_id"]);
+    const flaggedGrouped = _.groupBy(flaggedBuckets, item => item.key["context.bpp_id"]);
+    
+    const result = _.map(grouped, (group, key) => { 
+      return {
+            bpp_id: key,
+            item_count: group[0].unique_items.value,
+            provider_count: group[0].unique_providers.value,
+            flagged_items_count: flaggedGrouped[key] && flaggedGrouped[key][0]?.flagged_unique_items?.value || 0,
+            flagged_providers_count: flaggedGrouped[key] && flaggedGrouped[key][0]?.flagged_unique_providers?.value || 0 
+        }
+    });
+    
+    return {
+        sellers: result,
+        _after: allSellers.aggregations.unique.after_key["context.bpp_id"]
+    };
+
+  }
+
 
   async globalSearchItems(searchRequest = {}, targetLanguage = "en") {
     try {
@@ -624,9 +742,21 @@ class SearchService {
       },
     },)
 
+      // Geo distance filter
+      let geoDistanceFilter = {
+        geo_distance: {
+          distance: '50km',
+          "location_details.gps": {
+            lat: parseFloat(searchRequest.latitude),
+            lon: parseFloat(searchRequest.longitude),
+          },
+        },
+      };
+
       let query_obj = {
         bool: {
           must: matchQuery,
+          filter: [geoDistanceFilter],
           should: [
             //TODO: enable this once UI apis have been changed
             {
@@ -679,6 +809,21 @@ class SearchService {
       let queryResults = await client.search({
         body: {
           query: query_obj,
+          sort: [
+            {
+              _geo_distance: {
+                "location_details.gps": {
+                  lat: parseFloat(searchRequest.latitude),
+                  lon: parseFloat(searchRequest.longitude),
+                },
+                order: "asc",
+                unit: "km",
+                mode: "min",
+                distance_type: "arc",
+                ignore_unmapped: true
+              },
+            },
+          ],
           aggs: aggr_query,
           size: 0
         }
@@ -980,6 +1125,37 @@ class SearchService {
     }
   }
 
+  async flagSeller(searchRequest, targetLanguage="en"){
+    if (!_.isBoolean(searchRequest.flagged)){
+      throw new Error("Flag can only be boolean type");
+    }
+
+    let key;
+    switch(searchRequest.type){
+      case "seller":
+        key = "context.bpp_id"
+        break;
+      case "item":
+        key = "item_details.id"
+        break;
+      case "provider":
+        key = "provider_details.id"
+    }
+    const searchResults = await client.updateByQuery({
+      index: 'items',
+      query: {
+        term: {
+          [key]: searchRequest.id
+        }
+      },
+      "script": { "inline": `ctx._source.flagged = ${searchRequest.flagged}`}
+    });
+
+    return searchResults;
+    
+  }
+
+
   async  getOffers(searchRequest, targetLanguage = "en") {
     try {
       let matchQuery = [];
@@ -1059,6 +1235,448 @@ class SearchService {
     }
   }
 
+  async listProviders(searchRequest = {}, targetLanguage = "en") {
+    try {
+      let matchQuery = [];
+
+      // Filter by target language
+      matchQuery.push({
+        match: {
+          language: targetLanguage,
+        },
+      });
+
+      // Add search filters based on provided searchRequest
+      if (searchRequest.name) {
+        matchQuery.push({
+          match: {
+            "item_details.descriptor.name": searchRequest.name,
+          },
+        });
+      }
+
+      if (searchRequest.providerIds) {
+        matchQuery.push({
+          match: {
+            "provider_details.id": searchRequest.providerIds,
+          },
+        });
+      }
+
+      if (searchRequest.categoryIds) {
+        matchQuery.push({
+          match: {
+            "item_details.category_id": searchRequest.categoryIds,
+          },
+        });
+      }
+
+      if (searchRequest.bpp_id) {
+        matchQuery.push({
+          match: {
+            "context.bpp_id": searchRequest.bpp_id,
+          },
+        });
+      }
+
+      if (searchRequest.city) {
+        matchQuery.push({
+          match: {
+            "context.city": searchRequest.city,
+          },
+        });
+      }
+
+      if (searchRequest.domain) {
+        matchQuery.push({
+          match: {
+            "context.domain": searchRequest.domain,
+          },
+        });
+      }
+
+      // Add a filter for variants
+      matchQuery.push({
+        match: {
+          is_first: true,
+        },
+      });
+
+      // Add flag filter
+      if (searchRequest.flag !== undefined) {
+        matchQuery.push({
+          match: {
+            flagged: searchRequest.flag,
+          },
+        });
+      }
+
+      // Construct the query object
+      let query_obj = {
+        bool: {
+          must: matchQuery,
+        },
+      };
+
+      // Calculate pagination parameters
+      let size = parseInt(searchRequest.limit);
+      let page = parseInt(searchRequest.pageNumber);
+      const from = (page - 1) * size;
+
+      // Perform the search with pagination and aggregations
+      let queryResults = await client.search({
+        index: 'items',
+        body: {
+          query: query_obj,
+          from: from, // Fetch all results initially, pagination will be handled manually
+          size: size,
+          aggs: {
+            unique_provider_location: {
+              composite: {
+                size: size, // Number of results to return per page
+                sources: [
+                  { provider_id: { terms: { field: "provider_details.id" } } },
+                  { location_id: { terms: { field: "location_details.id" } } }
+                ],
+                after: searchRequest.afterKey ? { provider_id: searchRequest.afterKey.provider_id, location_id: searchRequest.afterKey.location_id } : undefined
+              },
+              aggs: {
+                item_count: {
+                  cardinality: {
+                    field: 'item_details.id'
+                  }
+                }, // Count items for each provider-location combination
+                flagged_count: { filter: { term: { flagged: true } } }, 
+                top_hits: { top_hits: { size: 1 } } // Get top hit for additional details
+              }
+            }
+          }
+        },
+      });
+
+      // Extract the provider data and aggregations
+      let providers = queryResults.aggregations.unique_provider_location.buckets.flatMap((bucket) => {
+        const itemCount = bucket.item_count.value;
+        const flaggedItemCount = bucket.flagged_count.doc_count;
+        const topHit = bucket.top_hits.hits.hits[0]?._source; // Safely accessing top_hits
+
+        if (!topHit) {
+          return null; // Skip if topHit is undefined
+        }
+        console.log("BUCKET", bucket);
+        const locationId = bucket.key.location_id;
+
+        return {
+          name: topHit.context.bpp_id, // BPP ID as name
+          provider: topHit.provider_details.descriptor.name, // Provider name
+          city: topHit.location_details.address.city,
+          seller_app: topHit.context.bpp_id, // Seller app
+          item_count: itemCount, // Number of items
+          flagged_item_count: flaggedItemCount,
+          location_id: locationId, // Location ID
+        };
+      }).filter(provider => provider !== null); // Filter out null values
+
+      // Return the total count and the sources
+      return {
+        response: {
+          count: providers.length,
+          data: providers,
+          pages: Math.ceil(providers.length / size), // Calculate the total number of pages
+        },
+      };
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  async displayItems(searchRequest = {}, targetLanguage = "en") {
+    try {
+      let matchQuery = [];
+
+      // Match for target language
+      matchQuery.push({
+        match: {
+          language: targetLanguage,
+        },
+      });
+
+      // Apply additional filters as per searchRequest
+      if (searchRequest.name) {
+        matchQuery.push({
+          match: {
+            "item_details.descriptor.name": searchRequest.name,
+          },
+        });
+      }
+
+      if (searchRequest.providerIds) {
+        matchQuery.push({
+          match: {
+            "provider_details.id": searchRequest.providerIds,
+          },
+        });
+      }
+
+      if (searchRequest.categoryIds) {
+        matchQuery.push({
+          match: {
+            "item_details.category_id": searchRequest.categoryIds,
+          },
+        });
+      }
+
+      if (searchRequest.bpp_id) {
+        matchQuery.push({
+          match: {
+            "context.bpp_id": searchRequest.bpp_id,
+          },
+        });
+      }
+
+      if (searchRequest.city) {
+        matchQuery.push({
+          match: {
+            "context.city": searchRequest.city,
+          },
+        });
+      }
+
+      if (searchRequest.domain) {
+        matchQuery.push({
+          match: {
+            "context.domain": searchRequest.domain,
+          },
+        });
+      }
+
+      // Ensure only first items are considered
+      matchQuery.push({
+        match: {
+          is_first: false,
+        },
+      });
+
+      // Add flag filter
+      if (searchRequest.flag !== undefined) {
+        matchQuery.push({
+          match: {
+            flagged: searchRequest.flag,
+          },
+        });
+      }
+
+      let query_obj = {
+        bool: {
+          must: matchQuery,
+        },
+      };
+
+      // Calculate pagination parameters
+      let size = parseInt(searchRequest.limit);
+      let page = parseInt(searchRequest.pageNumber);
+      const from = (page - 1) * size;
+
+      // Elasticsearch query with aggregation
+      let queryResults = await client.search({
+        index: 'items',
+        body: {
+          query: query_obj,
+          from: from,
+          size: size,
+          _source: [
+            'item_details.id',
+            'context.bpp_id',
+            'provider_details.descriptor.name',
+            'item_details.descriptor.name',
+            'item_details.descriptor.images',
+            'item_details.price.value',
+            'item_details.quantity.available.count'
+          ],
+        },
+      });
+
+      // Extract data from Elasticsearch response
+      let items = queryResults.hits.hits.map((hit) => ({
+        item_id: hit._source.item_details.id,
+        seller_app: hit._source.context.bpp_id,
+        provider_name: hit._source.provider_details.descriptor.name,
+        name: hit._source.context.bpp_id,
+        images: hit._source.item_details.descriptor.images,
+        price: hit._source.item_details.price.value,
+        quantity: hit._source.item_details.quantity.available.count
+      }));
+
+      // Get the total count of results
+      let totalCount = queryResults.hits.total.value;
+
+      // Return the total count and the items data
+      return {
+        response: {
+          count: totalCount,
+          data: items,
+          pages: Math.ceil(totalCount / size),
+        },
+      };
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  async addItemErrorTags(items) {
+    try {
+      if (!Array.isArray(items) || items.length === 0) {
+        throw new NoRecordFoundError('Invalid input: items should be a non-empty array.');
+      }
+  
+      const bulkResponse = [];
+  
+      for (const item of items) {
+        const { itemId, itemErrorTags } = item;
+  
+        if (!itemId || !Array.isArray(itemErrorTags)) {
+          throw new BadRequestParameterError('Invalid input: itemId should be a string and itemErrorTags should be an array.');
+        }
+  
+        const updateQuery = {
+          script: {
+            source: `
+              if (ctx._source.itemErrorTags == null) {
+                ctx._source.itemErrorTags = [];
+              }
+              for (tag in params.itemErrorTags) {
+                ctx._source.itemErrorTags.add(tag);
+              }
+            `,
+            params: {
+              itemErrorTags: itemErrorTags
+            }
+          },
+          query: {
+            term: {
+              id: itemId
+            }
+          }
+        };
+  
+        const response = await client.updateByQuery({
+          index: 'items',
+          body: updateQuery,
+          conflicts: 'proceed'
+        });
+  
+        bulkResponse.push(response);
+      }
+  
+      return bulkResponse;
+  
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  async addProviderErrorTags(items) {
+    try {
+      if (!Array.isArray(items) || items.length === 0) {
+        throw new NoRecordFoundError('Invalid input: items should be a non-empty array.');
+      }
+  
+      const bulkResponse = [];
+  
+      for (const item of items) {
+        const { providerId, providerErrorTags } = item;
+  
+        if (!providerId || !Array.isArray(providerErrorTags)) {
+          throw new BadRequestParameterError('Invalid input: providerId should be a string and providerErrorTags should be an array.');
+        }
+  
+        const updateQuery = {
+          script: {
+            source: `
+              if (ctx._source.providerErrorTags == null) {
+                ctx._source.providerErrorTags = [];
+              }
+              for (tag in params.providerErrorTags) {
+                ctx._source.providerErrorTags.add(tag);
+              }
+            `,
+            params: {
+              providerErrorTags: providerErrorTags
+            }
+          },
+          query: {
+            term: {
+              "provider_details.id": providerId
+            }
+          }
+        };
+  
+        const response = await client.updateByQuery({
+          index: 'items',
+          body: updateQuery,
+        });
+  
+        bulkResponse.push(response);
+      }
+  
+      return bulkResponse;
+  
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  async addSellerErrorTags(items) {
+    try {
+      if (!Array.isArray(items) || items.length === 0) {
+        throw new Error('Invalid input: items should be a non-empty array.');
+      }
+  
+      const bulkResponse = [];
+  
+      for (const item of items) {
+        const { sellerId, sellerErrorTags } = item;
+  
+        if (!sellerId || !Array.isArray(sellerErrorTags)) {
+          throw new Error('Invalid input: sellerId should be a string and sellerErrorTags should be an array.');
+        }
+  
+        const updateQuery = {
+          script: {
+            source: `
+              if (ctx._source.sellerErrorTags == null) {
+                ctx._source.sellerErrorTags = [];
+              }
+              for (tag in params.sellerErrorTags) {
+                ctx._source.sellerErrorTags.add(tag);
+              }
+            `,
+            params: {
+              sellerErrorTags: sellerErrorTags
+            }
+          },
+          query: {
+            term: {
+              "context.bpp_id": sellerId
+            }
+          }
+        };
+  
+        const response = await client.updateByQuery({
+          index: 'items',
+          body: updateQuery,
+          conflicts: 'proceed'
+        });
+  
+        bulkResponse.push(response);
+      }
+  
+      return bulkResponse;
+  
+    } catch (err) {
+      throw err;
+    }
+  }
 }
 
 export default SearchService;

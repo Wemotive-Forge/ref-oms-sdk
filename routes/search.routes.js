@@ -62,4 +62,32 @@ router.get(
     '/offers',  searchController.getOffers,
 );
 
+router.get(
+    '/seller', searchController.getSellerDetails
+);
+
+router.put(
+    '/flag-seller', searchController.flagSeller
+);
+
+router.get(
+    '/listProviders', searchController.listProviders
+)
+
+router.get(
+    '/displayItems', searchController.displayItems
+)
+
+router.post(
+    '/addItemErrorTags', searchController.addItemErrorTags
+)
+
+router.post(
+    '/addProviderErrorTags', searchController.addProviderErrorTags
+)
+
+router.post(
+    '/addSellerErrorTags', searchController.addSellerErrorTags
+)
+
 export default router;
