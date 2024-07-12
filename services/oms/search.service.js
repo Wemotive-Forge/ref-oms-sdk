@@ -1309,6 +1309,14 @@ class SearchService {
         });
       }
 
+      if(searchRequest.location_id) {
+        matchQuery.push({
+          match: {
+            "location_details.id": searchRequest.location_id
+          }
+        })
+      }
+
       // Add a filter for variants
       matchQuery.push({
         match: {
