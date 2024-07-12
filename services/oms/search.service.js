@@ -1377,7 +1377,7 @@ class SearchService {
           item_count: itemCount, // Number of items
           flagged_item_count: flaggedItemCount,
           location: topHit.location_details.address.locality,
-          flagged: topHit.flagged
+          flagged: topHit.flagged === true ? true : false,
         };
       }).filter(provider => provider !== null); // Filter out null values
 
@@ -1516,7 +1516,7 @@ class SearchService {
         images: hit._source.item_details.descriptor.images,
         price: hit._source.item_details.price.value,
         quantity: hit._source.item_details.quantity.available.count,
-        flagged: hit._source.flagged
+        flagged: hit._source.flagged === true ? true : false,
       }));
 
       // Get the total count of results
