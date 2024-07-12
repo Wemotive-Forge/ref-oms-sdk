@@ -1,7 +1,5 @@
 import _ from "lodash";
 import client from '../../database/elasticSearch.js';
-import NoRecordFoundError from "../../lib/errors/no-record-found.error.js";
-import BadRequestParameterError from "../../lib/errors/bad-request-parameter.error.js";
 
 class SearchService {
   isBppFilterSpecified(context = {}) {
@@ -209,7 +207,8 @@ class SearchService {
             item_count: group[0].unique_items.value,
             provider_count: group[0].unique_providers.value,
             flagged_items_count: flaggedGrouped[key] && flaggedGrouped[key][0]?.flagged_unique_items?.value || 0,
-            flagged_providers_count: flaggedGrouped[key] && flaggedGrouped[key][0]?.flagged_unique_providers?.value || 0 
+            flagged_providers_count: flaggedGrouped[key] && flaggedGrouped[key][0]?.flagged_unique_providers?.value || 0 ,
+            flagged : flaggedGrouped[key] !== undefined
         }
     });
     
@@ -1125,22 +1124,30 @@ class SearchService {
     }
   }
 
-  async flagSeller(searchRequest, targetLanguage="en"){
+  async flagSeller(searchRequest){
     if (!_.isBoolean(searchRequest.flagged)){
-      throw new Error("Flag can only be boolean type");
+      return res.status(400).json("Flag can only be boolean type");
     }
 
+    let source = `ctx._source.flagged = params.flagged;`
     let key;
+    
     switch(searchRequest.type){
       case "seller":
         key = "context.bpp_id"
+        source = source.concat("ctx._source.sellerErrorTags = params.errorTag;")
         break;
       case "item":
         key = "item_details.id"
+        source = source.concat("ctx._source.providerErrorTags = params.errorTag;");
         break;
       case "provider":
         key = "provider_details.id"
+        source = source.concat("ctx._source.itemErrorTags = params.errorTag;")
+      default:
+        return res.status(400).json("Type must be from ['item', 'seller', 'provider']");
     }
+    
     const searchResults = await client.updateByQuery({
       index: 'items',
       query: {
@@ -1148,7 +1155,14 @@ class SearchService {
           [key]: searchRequest.id
         }
       },
-      "script": { "inline": `ctx._source.flagged = ${searchRequest.flagged}`}
+      script: { 
+        source,
+        params: {
+          flagged: searchRequest.flagged,
+          errorTag : searchRequest.flagged ? searchRequest.errorTag : []
+        }
+      },
+      
     });
 
     return searchResults;
@@ -1510,161 +1524,6 @@ class SearchService {
           pages: Math.ceil(totalCount / size),
         },
       };
-    } catch (err) {
-      throw err;
-    }
-  }
-
-  async addItemErrorTags(items) {
-    try {
-      if (!Array.isArray(items) || items.length === 0) {
-        throw new NoRecordFoundError('Invalid input: items should be a non-empty array.');
-      }
-  
-      const bulkResponse = [];
-  
-      for (const item of items) {
-        const { itemId, itemErrorTags } = item;
-  
-        if (!itemId || !Array.isArray(itemErrorTags)) {
-          throw new BadRequestParameterError('Invalid input: itemId should be a string and itemErrorTags should be an array.');
-        }
-  
-        const updateQuery = {
-          script: {
-            source: `
-              if (ctx._source.itemErrorTags == null) {
-                ctx._source.itemErrorTags = [];
-              }
-              for (tag in params.itemErrorTags) {
-                ctx._source.itemErrorTags.add(tag);
-              }
-            `,
-            params: {
-              itemErrorTags: itemErrorTags
-            }
-          },
-          query: {
-            term: {
-              id: itemId
-            }
-          }
-        };
-  
-        const response = await client.updateByQuery({
-          index: 'items',
-          body: updateQuery,
-          conflicts: 'proceed'
-        });
-  
-        bulkResponse.push(response);
-      }
-  
-      return bulkResponse;
-  
-    } catch (err) {
-      throw err;
-    }
-  }
-
-  async addProviderErrorTags(items) {
-    try {
-      if (!Array.isArray(items) || items.length === 0) {
-        throw new NoRecordFoundError('Invalid input: items should be a non-empty array.');
-      }
-  
-      const bulkResponse = [];
-  
-      for (const item of items) {
-        const { providerId, providerErrorTags } = item;
-  
-        if (!providerId || !Array.isArray(providerErrorTags)) {
-          throw new BadRequestParameterError('Invalid input: providerId should be a string and providerErrorTags should be an array.');
-        }
-  
-        const updateQuery = {
-          script: {
-            source: `
-              if (ctx._source.providerErrorTags == null) {
-                ctx._source.providerErrorTags = [];
-              }
-              for (tag in params.providerErrorTags) {
-                ctx._source.providerErrorTags.add(tag);
-              }
-            `,
-            params: {
-              providerErrorTags: providerErrorTags
-            }
-          },
-          query: {
-            term: {
-              "provider_details.id": providerId
-            }
-          }
-        };
-  
-        const response = await client.updateByQuery({
-          index: 'items',
-          body: updateQuery,
-        });
-  
-        bulkResponse.push(response);
-      }
-  
-      return bulkResponse;
-  
-    } catch (err) {
-      throw err;
-    }
-  }
-
-  async addSellerErrorTags(items) {
-    try {
-      if (!Array.isArray(items) || items.length === 0) {
-        throw new Error('Invalid input: items should be a non-empty array.');
-      }
-  
-      const bulkResponse = [];
-  
-      for (const item of items) {
-        const { sellerId, sellerErrorTags } = item;
-  
-        if (!sellerId || !Array.isArray(sellerErrorTags)) {
-          throw new Error('Invalid input: sellerId should be a string and sellerErrorTags should be an array.');
-        }
-  
-        const updateQuery = {
-          script: {
-            source: `
-              if (ctx._source.sellerErrorTags == null) {
-                ctx._source.sellerErrorTags = [];
-              }
-              for (tag in params.sellerErrorTags) {
-                ctx._source.sellerErrorTags.add(tag);
-              }
-            `,
-            params: {
-              sellerErrorTags: sellerErrorTags
-            }
-          },
-          query: {
-            term: {
-              "context.bpp_id": sellerId
-            }
-          }
-        };
-  
-        const response = await client.updateByQuery({
-          index: 'items',
-          body: updateQuery,
-          conflicts: 'proceed'
-        });
-  
-        bulkResponse.push(response);
-      }
-  
-      return bulkResponse;
-  
     } catch (err) {
       throw err;
     }
