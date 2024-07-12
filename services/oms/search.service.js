@@ -1320,15 +1320,15 @@ class SearchService {
 
       // Calculate pagination parameters
       let size = parseInt(searchRequest.limit);
-      let page = parseInt(searchRequest.pageNumber);
-      const from = (page - 1) * size;
+      // let page = parseInt(searchRequest.pageNumber);
+      // const from = (page - 1) * size;
 
       // Perform the search with pagination and aggregations
       let queryResults = await client.search({
         index: 'items',
         body: {
           query: query_obj,
-          from: from, // Fetch all results initially, pagination will be handled manually
+          //from: from, // Fetch all results initially, pagination will be handled manually
           size: size,
           aggs: {
             unique_provider_location: {
@@ -1354,28 +1354,34 @@ class SearchService {
         },
       });
 
+      //return queryResults
+
       // Extract the provider data and aggregations
       let providers = queryResults.aggregations.unique_provider_location.buckets.flatMap((bucket) => {
         const itemCount = bucket.item_count.value;
         const flaggedItemCount = bucket.flagged_count.doc_count;
         const topHit = bucket.top_hits.hits.hits[0]?._source; // Safely accessing top_hits
 
+        console.log("TOP HIT", topHit);
+
         if (!topHit) {
           return null; // Skip if topHit is undefined
         }
         console.log("BUCKET", bucket);
-        const locationId = bucket.key.location_id;
 
         return {
-          name: topHit.context.bpp_id, // BPP ID as name
-          provider: topHit.provider_details.descriptor.name, // Provider name
-          city: topHit.location_details.address.city,
+          provider_details: topHit.provider_details,
+          name: topHit.provider_details.descriptor.name, // BPP ID as name
+          city: topHit.context.city,
           seller_app: topHit.context.bpp_id, // Seller app
           item_count: itemCount, // Number of items
           flagged_item_count: flaggedItemCount,
-          location_id: locationId, // Location ID
+          location: topHit.location_details.address.locality,
+          flagged: topHit.flagged
         };
       }).filter(provider => provider !== null); // Filter out null values
+
+      let afterKey = queryResults.aggregations.unique_provider_location.after_key;
 
       // Return the total count and the sources
       return {
@@ -1383,6 +1389,7 @@ class SearchService {
           count: providers.length,
           data: providers,
           pages: Math.ceil(providers.length / size), // Calculate the total number of pages
+          afterKey
         },
       };
     } catch (err) {
@@ -1453,7 +1460,7 @@ class SearchService {
       // Ensure only first items are considered
       matchQuery.push({
         match: {
-          is_first: false,
+          is_first: true,
         },
       });
 
@@ -1485,26 +1492,31 @@ class SearchService {
           from: from,
           size: size,
           _source: [
-            'item_details.id',
+            'item_details',
+            'id',
             'context.bpp_id',
             'provider_details.descriptor.name',
             'item_details.descriptor.name',
             'item_details.descriptor.images',
             'item_details.price.value',
-            'item_details.quantity.available.count'
+            'item_details.quantity.available.count',
+            'item_details.descriptor.name',
+            'flagged'
           ],
         },
-      });
+      })
 
       // Extract data from Elasticsearch response
       let items = queryResults.hits.hits.map((hit) => ({
-        item_id: hit._source.item_details.id,
+        item_details: hit._source.item_details,
+        item_id: hit._source.id,
+        item_name: hit._source.item_details.descriptor.name,
         seller_app: hit._source.context.bpp_id,
         provider_name: hit._source.provider_details.descriptor.name,
-        name: hit._source.context.bpp_id,
         images: hit._source.item_details.descriptor.images,
         price: hit._source.item_details.price.value,
-        quantity: hit._source.item_details.quantity.available.count
+        quantity: hit._source.item_details.quantity.available.count,
+        flagged: hit._source.flagged
       }));
 
       // Get the total count of results
