@@ -105,110 +105,93 @@ class SearchService {
 
   async getSellers(searchRequest = {}, targetLanguage = "en") {
     let afterKey;
-    let query = {
-        bool: {
-            must: [{
-                match: {
-                    "context.domain": searchRequest.domain,
-                    "flagged": JSON.parse(searchRequest.flagged.toLowerCase())
-                }
-            }]
-        }
-    };
+    let query;
     if (searchRequest.after) {
         afterKey = {
             "context.bpp_id": searchRequest.after
         }
     }
 
-    if (!searchRequest.domain) {
-        query.bool.must[0].match["context.domain"] = undefined;
-    }
-    const allSellersFlagged = await client.search({
-        index: 'items',
-        query: query,
-        size: 0,
-        aggs: {
-            unique: {
-                composite: {
-                    after: afterKey,
-                    sources: {
-                        "context.bpp_id": {
-                            terms: {
-                                "field": "context.bpp_id"
-                            }
-                        }
-                    },
-                    size: searchRequest.limit
-                },
-                aggs: {
-                    flagged_unique_providers: {
-                        cardinality: {
-                            field: 'provider_details.id'
-                        }
-                    },
-                    flagged_unique_items: {
-                        cardinality: {
-                            field: 'item_details.id'
-                        }
-                    }
-                }
-            }
+    if (searchRequest.domain) {
+      query = {
+        bool: {
+          must: [{
+              match: {
+                  "context.domain": searchRequest.domain,
+              }
+          }]
         }
+      };   
+    }
 
-    });
-    query = undefined
     const allSellers = await client.search({
         index: 'items',
         query: query,
         size: 0,
         aggs: {
-            unique: {
-
-                composite: {
-                    after: afterKey,
-                    sources: {
-                        "context.bpp_id": {
-                            terms: {
-                                "field": "context.bpp_id"
-                            }
-                        }
-                    },
-                    size: searchRequest.limit
-                },
-                aggs: {
-                    unique_providers: {
-                        cardinality: {
-                            field: 'provider_details.id'
-                        }
-                    },
-                    unique_items: {
-                        cardinality: {
-                            field: 'item_details.id'
+          unique: {
+            composite: {
+                after: afterKey,
+                sources: {
+                    "context.bpp_id": {
+                        terms: {
+                            "field": "context.bpp_id"
                         }
                     }
-                }
-            }
-        }
-
+                },
+                size: searchRequest.limit
+            },
+            aggs: {
+                provider_count: {
+                    cardinality: {
+                        field: 'provider_details.id'
+                    }
+                }, 
+                seller_flag_count: {
+                  filter: {
+                      term: {
+                          sellerFlag: true
+                      }
+                  }
+                },
+                provider_flagged_count: {
+                    filter: {
+                        term: {
+                            providerFlag: true
+                        }
+                    }
+                },
+                item_count: {
+                  cardinality: {
+                      field: 'item_details.id'
+                  },
+                },
+                item_flagged_count: {
+                  filter: {
+                      term: {
+                          itemFlag: true
+                      }
+                  }
+              },
+            },
+          }
+      }
     });
 
     const {
         buckets
     } = allSellers.aggregations.unique;
 
-    const { buckets : flaggedBuckets } = allSellersFlagged.aggregations.unique;
     const grouped = _.groupBy(buckets, item => item.key["context.bpp_id"]);
-    const flaggedGrouped = _.groupBy(flaggedBuckets, item => item.key["context.bpp_id"]);
     
     const result = _.map(grouped, (group, key) => { 
       return {
             bpp_id: key,
-            item_count: group[0].unique_items.value,
-            provider_count: group[0].unique_providers.value,
-            flagged_items_count: flaggedGrouped[key] && flaggedGrouped[key][0]?.flagged_unique_items?.value || 0,
-            flagged_providers_count: flaggedGrouped[key] && flaggedGrouped[key][0]?.flagged_unique_providers?.value || 0 ,
-            flagged : flaggedGrouped[key] !== undefined
+            item_count: group[0].item_count.value,
+            provider_count: group[0].provider_count.value,
+            flagged_items_count: group[0].item_flagged_count.doc_count,
+            flagged_providers_count: group[0].provider_flagged_count.doc_count,
+            sellerFlagged : group[0].seller_flag_count.doc_count > 0,
         }
     });
     
@@ -1124,30 +1107,30 @@ class SearchService {
     }
   }
 
-  async flagSeller(searchRequest){
+  async flag(searchRequest){
     if (!_.isBoolean(searchRequest.flagged)){
-      return res.status(400).json("Flag can only be boolean type");
+      throw new Error("Flag can only be boolean type");
     }
 
     let source = `ctx._source.flagged = params.flagged;`
     let key;
-    
     switch(searchRequest.type){
       case "seller":
         key = "context.bpp_id"
-        source = source.concat("ctx._source.sellerErrorTags = params.errorTag;")
+        source = `ctx._source.sellerFlagged = params.flagged; ctx._source.sellerErrorTags = params.errorTag;`
         break;
       case "item":
         key = "item_details.id"
-        source = source.concat("ctx._source.providerErrorTags = params.errorTag;");
+        source = `ctx._source.itemFlagged = params.flagged; ctx._source.itemErrorTags = params.errorTag;`
         break;
       case "provider":
         key = "provider_details.id"
-        source = source.concat("ctx._source.itemErrorTags = params.errorTag;")
+        source = `ctx._source.providerFlagged = params.flagged; ctx._source.providerErrorTags = params.errorTag;`
+        break;
       default:
-        return res.status(400).json("Type must be from ['item', 'seller', 'provider']");
+        throw new Error("Type must be from ['item', 'seller', 'provider']");
     }
-    
+    console.log(source)
     const searchResults = await client.updateByQuery({
       index: 'items',
       query: {
