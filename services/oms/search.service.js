@@ -1311,7 +1311,7 @@ class SearchService {
       if (searchRequest.flag !== undefined) {
         matchQuery.push({
           match: {
-            flagged: searchRequest.flag,
+            providerFlagged: searchRequest.flag,
           },
         });
       }
@@ -1351,7 +1351,7 @@ class SearchService {
                     field: 'item_details.id'
                   }
                 }, // Count items for each provider-location combination
-                flagged_count: { filter: { term: { flagged: true } } }, 
+                flagged_count: { filter: { term: { providerFlagged: true } } }, 
                 top_hits: { top_hits: { size: 1 } } // Get top hit for additional details
               }
             }
@@ -1384,7 +1384,7 @@ class SearchService {
           flagged_item_count: flaggedItemCount,
           location_id: locationId,
           location: topHit.location_details.address.locality,
-          flagged: topHit.flagged === true ? true : false,
+          providerFlagged: topHit.providerFlagged === true ? true : false,
         };
       }).filter(provider => provider !== null); // Filter out null values
 
@@ -1475,7 +1475,7 @@ class SearchService {
       if (searchRequest.flag !== undefined) {
         matchQuery.push({
           match: {
-            flagged: searchRequest.flag,
+            itemFlagged: searchRequest.flag,
           },
         });
       }
@@ -1508,7 +1508,7 @@ class SearchService {
             'item_details.price.value',
             'item_details.quantity.available.count',
             'item_details.descriptor.name',
-            'flagged'
+            'itemFlagged'
           ],
         },
       })
@@ -1523,7 +1523,7 @@ class SearchService {
         images: hit._source.item_details.descriptor.images,
         price: hit._source.item_details.price.value,
         quantity: hit._source.item_details.quantity.available.count,
-        flagged: hit._source.flagged === true ? true : false,
+        itemFlagged: hit._source.itemFlagged === true ? true : false,
       }));
 
       // Get the total count of results
