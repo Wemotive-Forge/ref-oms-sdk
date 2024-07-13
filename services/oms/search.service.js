@@ -129,13 +129,18 @@ class SearchService {
         query: query,
         size: 0,
         aggs: {
+          seller_count: {
+            cardinality: {
+                field: 'context.bpp_id'
+            }
+          }, 
           unique: {
             composite: {
                 after: afterKey,
                 sources: {
                     "context.bpp_id": {
                         terms: {
-                            "field": "context.bpp_id"
+                            field: "context.bpp_id"
                         }
                     }
                 },
@@ -177,6 +182,7 @@ class SearchService {
           }
       }
     });
+
     const {
         buckets
     } = allSellers.aggregations.unique;
@@ -196,7 +202,7 @@ class SearchService {
     
     return {
         sellers: result,
-        count: allSellers.hits.total.value,
+        count: allSellers.aggregations.seller_count.value,
         afterKey: allSellers.aggregations.unique.after_key["context.bpp_id"]
     };
 
