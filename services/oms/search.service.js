@@ -1523,7 +1523,7 @@ class SearchService {
         images: hit._source.item_details.descriptor.images,
         price: hit._source.item_details.price.value,
         quantity: hit._source.item_details.quantity.available.count,
-        itemFlagged: hit._source.itemFlagged === true ? true : false,
+        itemFlagged: hit._source.itemFlagged
       }));
 
       // Get the total count of results
