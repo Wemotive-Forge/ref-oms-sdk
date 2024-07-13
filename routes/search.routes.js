@@ -67,7 +67,7 @@ router.get(
 );
 
 router.put(
-    '/flag-seller', searchController.flagSeller
+    '/flag', searchController.flag
 );
 
 router.get(
@@ -76,18 +76,6 @@ router.get(
 
 router.get(
     '/displayItems', searchController.displayItems
-)
-
-router.post(
-    '/addItemErrorTags', searchController.addItemErrorTags
-)
-
-router.post(
-    '/addProviderErrorTags', searchController.addProviderErrorTags
-)
-
-router.post(
-    '/addSellerErrorTags', searchController.addSellerErrorTags
 )
 
 export default router;

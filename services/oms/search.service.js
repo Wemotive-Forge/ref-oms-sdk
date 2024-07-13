@@ -1,7 +1,5 @@
 import _ from "lodash";
 import client from '../../database/elasticSearch.js';
-import NoRecordFoundError from "../../lib/errors/no-record-found.error.js";
-import BadRequestParameterError from "../../lib/errors/bad-request-parameter.error.js";
 
 class SearchService {
   isBppFilterSpecified(context = {}) {
@@ -107,109 +105,93 @@ class SearchService {
 
   async getSellers(searchRequest = {}, targetLanguage = "en") {
     let afterKey;
-    let query = {
-        bool: {
-            must: [{
-                match: {
-                    "context.domain": searchRequest.domain,
-                    "flagged": JSON.parse(searchRequest.flagged.toLowerCase())
-                }
-            }]
-        }
-    };
+    let query;
     if (searchRequest.after) {
         afterKey = {
             "context.bpp_id": searchRequest.after
         }
     }
 
-    if (!searchRequest.domain) {
-        query.bool.must[0].match["context.domain"] = undefined;
-    }
-    const allSellersFlagged = await client.search({
-        index: 'items',
-        query: query,
-        size: 0,
-        aggs: {
-            unique: {
-                composite: {
-                    after: afterKey,
-                    sources: {
-                        "context.bpp_id": {
-                            terms: {
-                                "field": "context.bpp_id"
-                            }
-                        }
-                    },
-                    size: searchRequest.limit
-                },
-                aggs: {
-                    flagged_unique_providers: {
-                        cardinality: {
-                            field: 'provider_details.id'
-                        }
-                    },
-                    flagged_unique_items: {
-                        cardinality: {
-                            field: 'item_details.id'
-                        }
-                    }
-                }
-            }
+    if (searchRequest.domain) {
+      query = {
+        bool: {
+          must: [{
+              match: {
+                  "context.domain": searchRequest.domain,
+              }
+          }]
         }
+      };   
+    }
 
-    });
-    query = undefined
     const allSellers = await client.search({
         index: 'items',
         query: query,
         size: 0,
         aggs: {
-            unique: {
-
-                composite: {
-                    after: afterKey,
-                    sources: {
-                        "context.bpp_id": {
-                            terms: {
-                                "field": "context.bpp_id"
-                            }
-                        }
-                    },
-                    size: searchRequest.limit
-                },
-                aggs: {
-                    unique_providers: {
-                        cardinality: {
-                            field: 'provider_details.id'
-                        }
-                    },
-                    unique_items: {
-                        cardinality: {
-                            field: 'item_details.id'
+          unique: {
+            composite: {
+                after: afterKey,
+                sources: {
+                    "context.bpp_id": {
+                        terms: {
+                            "field": "context.bpp_id"
                         }
                     }
-                }
-            }
-        }
-
+                },
+                size: searchRequest.limit
+            },
+            aggs: {
+                provider_count: {
+                    cardinality: {
+                        field: 'provider_details.id'
+                    }
+                }, 
+                seller_flag_count: {
+                  filter: {
+                      term: {
+                          sellerFlag: true
+                      }
+                  }
+                },
+                provider_flagged_count: {
+                    filter: {
+                        term: {
+                            providerFlag: true
+                        }
+                    }
+                },
+                item_count: {
+                  cardinality: {
+                      field: 'item_details.id'
+                  },
+                },
+                item_flagged_count: {
+                  filter: {
+                      term: {
+                          itemFlag: true
+                      }
+                  }
+              },
+            },
+          }
+      }
     });
 
     const {
         buckets
     } = allSellers.aggregations.unique;
 
-    const { buckets : flaggedBuckets } = allSellersFlagged.aggregations.unique;
     const grouped = _.groupBy(buckets, item => item.key["context.bpp_id"]);
-    const flaggedGrouped = _.groupBy(flaggedBuckets, item => item.key["context.bpp_id"]);
     
     const result = _.map(grouped, (group, key) => { 
       return {
             bpp_id: key,
-            item_count: group[0].unique_items.value,
-            provider_count: group[0].unique_providers.value,
-            flagged_items_count: flaggedGrouped[key] && flaggedGrouped[key][0]?.flagged_unique_items?.value || 0,
-            flagged_providers_count: flaggedGrouped[key] && flaggedGrouped[key][0]?.flagged_unique_providers?.value || 0 
+            item_count: group[0].item_count.value,
+            provider_count: group[0].provider_count.value,
+            flagged_items_count: group[0].item_flagged_count.doc_count,
+            flagged_providers_count: group[0].provider_flagged_count.doc_count,
+            sellerFlagged : group[0].seller_flag_count.doc_count > 0,
         }
     });
     
@@ -1125,22 +1107,30 @@ class SearchService {
     }
   }
 
-  async flagSeller(searchRequest, targetLanguage="en"){
+  async flag(searchRequest){
     if (!_.isBoolean(searchRequest.flagged)){
       throw new Error("Flag can only be boolean type");
     }
 
+    let source = `ctx._source.flagged = params.flagged;`
     let key;
     switch(searchRequest.type){
       case "seller":
         key = "context.bpp_id"
+        source = `ctx._source.sellerFlagged = params.flagged; ctx._source.sellerErrorTags = params.errorTag;`
         break;
       case "item":
         key = "item_details.id"
+        source = `ctx._source.itemFlagged = params.flagged; ctx._source.itemErrorTags = params.errorTag;`
         break;
       case "provider":
         key = "provider_details.id"
+        source = `ctx._source.providerFlagged = params.flagged; ctx._source.providerErrorTags = params.errorTag;`
+        break;
+      default:
+        throw new Error("Type must be from ['item', 'seller', 'provider']");
     }
+    console.log(source)
     const searchResults = await client.updateByQuery({
       index: 'items',
       query: {
@@ -1148,7 +1138,14 @@ class SearchService {
           [key]: searchRequest.id
         }
       },
-      "script": { "inline": `ctx._source.flagged = ${searchRequest.flagged}`}
+      script: { 
+        source,
+        params: {
+          flagged: searchRequest.flagged,
+          errorTag : searchRequest.flagged ? searchRequest.errorTag : []
+        }
+      },
+      
     });
 
     return searchResults;
@@ -1295,6 +1292,14 @@ class SearchService {
         });
       }
 
+      if(searchRequest.location_id) {
+        matchQuery.push({
+          match: {
+            "location_details.id": searchRequest.location_id
+          }
+        })
+      }
+
       // Add a filter for variants
       matchQuery.push({
         match: {
@@ -1306,7 +1311,7 @@ class SearchService {
       if (searchRequest.flag !== undefined) {
         matchQuery.push({
           match: {
-            flagged: searchRequest.flag,
+            providerFlagged: searchRequest.flag,
           },
         });
       }
@@ -1320,15 +1325,15 @@ class SearchService {
 
       // Calculate pagination parameters
       let size = parseInt(searchRequest.limit);
-      let page = parseInt(searchRequest.pageNumber);
-      const from = (page - 1) * size;
+      // let page = parseInt(searchRequest.pageNumber);
+      // const from = (page - 1) * size;
 
       // Perform the search with pagination and aggregations
       let queryResults = await client.search({
         index: 'items',
         body: {
           query: query_obj,
-          from: from, // Fetch all results initially, pagination will be handled manually
+          //from: from, // Fetch all results initially, pagination will be handled manually
           size: size,
           aggs: {
             unique_provider_location: {
@@ -1346,7 +1351,7 @@ class SearchService {
                     field: 'item_details.id'
                   }
                 }, // Count items for each provider-location combination
-                flagged_count: { filter: { term: { flagged: true } } }, 
+                flagged_count: { filter: { term: { providerFlagged: true } } }, 
                 top_hits: { top_hits: { size: 1 } } // Get top hit for additional details
               }
             }
@@ -1354,11 +1359,15 @@ class SearchService {
         },
       });
 
+      //return queryResults
+
       // Extract the provider data and aggregations
       let providers = queryResults.aggregations.unique_provider_location.buckets.flatMap((bucket) => {
         const itemCount = bucket.item_count.value;
         const flaggedItemCount = bucket.flagged_count.doc_count;
         const topHit = bucket.top_hits.hits.hits[0]?._source; // Safely accessing top_hits
+
+        console.log("TOP HIT", topHit);
 
         if (!topHit) {
           return null; // Skip if topHit is undefined
@@ -1367,15 +1376,19 @@ class SearchService {
         const locationId = bucket.key.location_id;
 
         return {
-          name: topHit.context.bpp_id, // BPP ID as name
-          provider: topHit.provider_details.descriptor.name, // Provider name
-          city: topHit.location_details.address.city,
+          provider_details: topHit.provider_details,
+          name: topHit.provider_details.descriptor.name, // BPP ID as name
+          city: topHit.context.city,
           seller_app: topHit.context.bpp_id, // Seller app
           item_count: itemCount, // Number of items
           flagged_item_count: flaggedItemCount,
-          location_id: locationId, // Location ID
+          location_id: locationId,
+          location: topHit.location_details.address.locality,
+          providerFlagged: topHit.providerFlagged === true ? true : false,
         };
       }).filter(provider => provider !== null); // Filter out null values
+
+      let afterKey = queryResults.aggregations.unique_provider_location.after_key;
 
       // Return the total count and the sources
       return {
@@ -1383,6 +1396,7 @@ class SearchService {
           count: providers.length,
           data: providers,
           pages: Math.ceil(providers.length / size), // Calculate the total number of pages
+          afterKey
         },
       };
     } catch (err) {
@@ -1453,7 +1467,7 @@ class SearchService {
       // Ensure only first items are considered
       matchQuery.push({
         match: {
-          is_first: false,
+          is_first: true,
         },
       });
 
@@ -1461,7 +1475,7 @@ class SearchService {
       if (searchRequest.flag !== undefined) {
         matchQuery.push({
           match: {
-            flagged: searchRequest.flag,
+            itemFlagged: searchRequest.flag,
           },
         });
       }
@@ -1485,26 +1499,31 @@ class SearchService {
           from: from,
           size: size,
           _source: [
-            'item_details.id',
+            'item_details',
+            'id',
             'context.bpp_id',
             'provider_details.descriptor.name',
             'item_details.descriptor.name',
             'item_details.descriptor.images',
             'item_details.price.value',
-            'item_details.quantity.available.count'
+            'item_details.quantity.available.count',
+            'item_details.descriptor.name',
+            'itemFlagged'
           ],
         },
-      });
+      })
 
       // Extract data from Elasticsearch response
       let items = queryResults.hits.hits.map((hit) => ({
-        item_id: hit._source.item_details.id,
+        item_details: hit._source.item_details,
+        item_id: hit._source.id,
+        item_name: hit._source.item_details.descriptor.name,
         seller_app: hit._source.context.bpp_id,
         provider_name: hit._source.provider_details.descriptor.name,
-        name: hit._source.context.bpp_id,
         images: hit._source.item_details.descriptor.images,
         price: hit._source.item_details.price.value,
-        quantity: hit._source.item_details.quantity.available.count
+        quantity: hit._source.item_details.quantity.available.count,
+        itemFlagged: hit._source.itemFlagged
       }));
 
       // Get the total count of results
@@ -1518,161 +1537,6 @@ class SearchService {
           pages: Math.ceil(totalCount / size),
         },
       };
-    } catch (err) {
-      throw err;
-    }
-  }
-
-  async addItemErrorTags(items) {
-    try {
-      if (!Array.isArray(items) || items.length === 0) {
-        throw new NoRecordFoundError('Invalid input: items should be a non-empty array.');
-      }
-  
-      const bulkResponse = [];
-  
-      for (const item of items) {
-        const { itemId, itemErrorTags } = item;
-  
-        if (!itemId || !Array.isArray(itemErrorTags)) {
-          throw new BadRequestParameterError('Invalid input: itemId should be a string and itemErrorTags should be an array.');
-        }
-  
-        const updateQuery = {
-          script: {
-            source: `
-              if (ctx._source.itemErrorTags == null) {
-                ctx._source.itemErrorTags = [];
-              }
-              for (tag in params.itemErrorTags) {
-                ctx._source.itemErrorTags.add(tag);
-              }
-            `,
-            params: {
-              itemErrorTags: itemErrorTags
-            }
-          },
-          query: {
-            term: {
-              id: itemId
-            }
-          }
-        };
-  
-        const response = await client.updateByQuery({
-          index: 'items',
-          body: updateQuery,
-          conflicts: 'proceed'
-        });
-  
-        bulkResponse.push(response);
-      }
-  
-      return bulkResponse;
-  
-    } catch (err) {
-      throw err;
-    }
-  }
-
-  async addProviderErrorTags(items) {
-    try {
-      if (!Array.isArray(items) || items.length === 0) {
-        throw new NoRecordFoundError('Invalid input: items should be a non-empty array.');
-      }
-  
-      const bulkResponse = [];
-  
-      for (const item of items) {
-        const { providerId, providerErrorTags } = item;
-  
-        if (!providerId || !Array.isArray(providerErrorTags)) {
-          throw new BadRequestParameterError('Invalid input: providerId should be a string and providerErrorTags should be an array.');
-        }
-  
-        const updateQuery = {
-          script: {
-            source: `
-              if (ctx._source.providerErrorTags == null) {
-                ctx._source.providerErrorTags = [];
-              }
-              for (tag in params.providerErrorTags) {
-                ctx._source.providerErrorTags.add(tag);
-              }
-            `,
-            params: {
-              providerErrorTags: providerErrorTags
-            }
-          },
-          query: {
-            term: {
-              "provider_details.id": providerId
-            }
-          }
-        };
-  
-        const response = await client.updateByQuery({
-          index: 'items',
-          body: updateQuery,
-        });
-  
-        bulkResponse.push(response);
-      }
-  
-      return bulkResponse;
-  
-    } catch (err) {
-      throw err;
-    }
-  }
-
-  async addSellerErrorTags(items) {
-    try {
-      if (!Array.isArray(items) || items.length === 0) {
-        throw new Error('Invalid input: items should be a non-empty array.');
-      }
-  
-      const bulkResponse = [];
-  
-      for (const item of items) {
-        const { sellerId, sellerErrorTags } = item;
-  
-        if (!sellerId || !Array.isArray(sellerErrorTags)) {
-          throw new Error('Invalid input: sellerId should be a string and sellerErrorTags should be an array.');
-        }
-  
-        const updateQuery = {
-          script: {
-            source: `
-              if (ctx._source.sellerErrorTags == null) {
-                ctx._source.sellerErrorTags = [];
-              }
-              for (tag in params.sellerErrorTags) {
-                ctx._source.sellerErrorTags.add(tag);
-              }
-            `,
-            params: {
-              sellerErrorTags: sellerErrorTags
-            }
-          },
-          query: {
-            term: {
-              "context.bpp_id": sellerId
-            }
-          }
-        };
-  
-        const response = await client.updateByQuery({
-          index: 'items',
-          body: updateQuery,
-          conflicts: 'proceed'
-        });
-  
-        bulkResponse.push(response);
-      }
-  
-      return bulkResponse;
-  
     } catch (err) {
       throw err;
     }
