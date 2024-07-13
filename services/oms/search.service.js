@@ -106,9 +106,9 @@ class SearchService {
   async getSellers(searchRequest = {}, targetLanguage = "en") {
     let afterKey;
     let query;
-    if (searchRequest.after) {
+    if (searchRequest.afterKey) {
         afterKey = {
-            "context.bpp_id": searchRequest.after
+            "context.bpp_id": searchRequest.afterKey
         }
     }
 
@@ -177,7 +177,6 @@ class SearchService {
           }
       }
     });
-
     const {
         buckets
     } = allSellers.aggregations.unique;
@@ -197,7 +196,8 @@ class SearchService {
     
     return {
         sellers: result,
-        _after: allSellers.aggregations.unique.after_key["context.bpp_id"]
+        count: allSellers.hits.total.value,
+        afterKey: allSellers.aggregations.unique.after_key["context.bpp_id"]
     };
 
   }
