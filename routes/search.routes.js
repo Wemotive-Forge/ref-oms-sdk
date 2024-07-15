@@ -63,7 +63,7 @@ router.get(
 );
 
 router.get(
-    '/seller', searchController.getSellerDetails
+    '/list-sellers', searchController.getSellerDetails
 );
 
 router.put(
@@ -71,11 +71,19 @@ router.put(
 );
 
 router.get(
-    '/listProviders', searchController.listProviders
+    '/flag', searchController.getErrorTags
 )
 
 router.get(
-    '/displayItems', searchController.displayItems
+    '/list-providers', searchController.listProviders
+)
+
+router.get(
+    '/display-items', searchController.displayItems
+)
+
+router.get(
+    '/seller-ids', searchController.getSellerIds
 )
 
 export default router;
