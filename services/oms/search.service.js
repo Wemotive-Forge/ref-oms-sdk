@@ -1,5 +1,6 @@
 import _ from "lodash";
 import client from '../../database/elasticSearch.js';
+import NoRecordFoundError from "../../lib/errors/no-record-found.error.js";
 
 class SearchService {
   isBppFilterSpecified(context = {}) {
@@ -1232,8 +1233,7 @@ class SearchService {
     return searchResults;
     
   }
-
-
+  
   async  getOffers(searchRequest, targetLanguage = "en") {
     try {
       let matchQuery = [];
@@ -1622,6 +1622,35 @@ class SearchService {
       throw err;
     }
   }
+
+  async getSellerIds(searchRequest = {}, targetLanguage = "en") {
+    let query;
+  
+    if (searchRequest.domain) {
+      query = {
+        bool: {
+          must: [{
+            match: {
+              "context.domain": searchRequest.domain,
+            }
+          }]
+        }
+      };
+    }
+  
+    const allSellers = await client.search({
+      index: 'items',
+      query: query,
+      size: 10000,  
+      _source: ["context.bpp_id"] 
+    });
+  
+    const sellerIds = allSellers.hits.hits.map(hit => hit._source.context.bpp_id);
+  
+    return {
+      seller_ids: Array.from(new Set(sellerIds))  
+    };
+  }  
 }
 
 export default SearchService;
