@@ -1626,30 +1626,28 @@ class SearchService {
   async getSellerIds(searchRequest = {}, targetLanguage = "en") {
     let query;
   
-    if (searchRequest.domain) {
-      query = {
-        bool: {
-          must: [{
-            match: {
-              "context.domain": searchRequest.domain,
-            }
-          }]
-        }
-      };
-    }
-  
+    const sellerCount = await client.search({
+      index: "items",
+      size: 0,
+      aggs : {
+        seller_count: {
+          cardinality: {
+              field: 'context.bpp_id'
+          }
+        }, 
+      }
+    })
+
     const allSellers = await client.search({
       index: 'items',
-      query: query,
-      size: 10000,  
-      _source: ["context.bpp_id"] 
+      aggs: {
+        unique : { 
+          terms: { field: "context.bpp_id" , size: sellerCount.aggregations.seller_count.value } 
+        }
+      }
     });
   
-    const sellerIds = allSellers.hits.hits.map(hit => hit._source.context.bpp_id);
-  
-    return {
-      seller_ids: Array.from(new Set(sellerIds))  
-    };
+    return{ sellers :  allSellers.aggregations.unique.buckets.map(seller => seller.key) };
   }  
 }
 
