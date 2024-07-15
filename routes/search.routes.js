@@ -75,7 +75,7 @@ router.get(
 )
 
 router.put(
-    '/flag', searchController.flag
+    '/flag', searchController.updateFlag
 );
 
 router.get(
