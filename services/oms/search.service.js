@@ -1686,6 +1686,12 @@ class SearchService {
 
     const categoryCount = totalCategories.aggregations.categoryCount.value;
   
+    if (categoryCount === 0){
+      return {
+        unique_categories: []
+      };
+    }
+
     const getCategories = await client.search({
       index: 'items',
       size: 0,
@@ -1695,7 +1701,7 @@ class SearchService {
           unique: {
             terms: {
               field: "item_details.category_id",
-              size: categoryCount > 0 ? categoryCount : 10 // Use categoryCount if greater than 0, otherwise default to 10
+              size: categoryCount
             }
           }
         }
