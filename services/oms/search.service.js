@@ -1158,62 +1158,7 @@ class SearchService {
     return searchResults;
     
   }
-
-  async getErrorTagsById(searchRequest) {
-    if (!searchRequest.id || !searchRequest.type) {
-      throw new Error("Both id and type are required parameters");
-    }
   
-    let key;
-    let errorTagField;
-    let flagField;
-    switch (searchRequest.type) {
-      case "seller":
-        key = "context.bpp_id";
-        errorTagField = "sellerErrorTags";
-        flagField = "sellerFlagged";
-        break;
-      case "item":
-        key = "item_details.id";
-        errorTagField = "itemErrorTags";
-        flagField = "itemFlagged";
-        break;
-      case "provider":
-        key = "provider_details.id";
-        errorTagField = "providerErrorTags";
-        flagField = "providerFlagged"
-        break;
-      default:
-        throw new Error("Type must be one of ['item', 'seller', 'provider']");
-    }
-  
-    const searchResults = await client.search({
-      index: 'items',
-      query: {
-        term: {
-          [key]: searchRequest.id
-        }
-      },
-      _source: [errorTagField, flagField]
-    });
-  
-    if (searchResults.hits.hits.length === 0) {
-      throw new NoRecordFoundError("No records found for the given id and type");
-    }
-
-    const result = searchResults.hits.hits.map(hit => ({
-      errorTags: hit._source[errorTagField],
-      flagged: hit._source[flagField]
-    }));
-  
-    return {
-      id: searchRequest.id,
-      type: searchRequest.type,
-      errorTags: result.map(item => item.errorTags).flat(),
-      flagged: result.some(item => item.flagged)
-    };
-  }
-
   async  getOffers(searchRequest, targetLanguage = "en") {
     try {
       let matchQuery = [];
