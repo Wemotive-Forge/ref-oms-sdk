@@ -1,5 +1,6 @@
 import _ from "lodash";
 import client from '../../database/elasticSearch.js';
+import NoRecordFoundError from "../../lib/errors/no-record-found.error.js";
 
 class SearchService {
   isBppFilterSpecified(context = {}) {
@@ -106,9 +107,9 @@ class SearchService {
   async getSellers(searchRequest = {}, targetLanguage = "en") {
     let afterKey;
     let query;
-    if (searchRequest.after) {
+    if (searchRequest.afterKey) {
         afterKey = {
-            "context.bpp_id": searchRequest.after
+            "context.bpp_id": searchRequest.afterKey
         }
     }
 
@@ -129,13 +130,18 @@ class SearchService {
         query: query,
         size: 0,
         aggs: {
+          seller_count: {
+            cardinality: {
+                field: 'context.bpp_id'
+            }
+          }, 
           unique: {
             composite: {
                 after: afterKey,
                 sources: {
                     "context.bpp_id": {
                         terms: {
-                            "field": "context.bpp_id"
+                            field: "context.bpp_id"
                         }
                     }
                 },
@@ -197,7 +203,8 @@ class SearchService {
     
     return {
         sellers: result,
-        _after: allSellers.aggregations.unique.after_key["context.bpp_id"]
+        count: allSellers.aggregations.seller_count.value,
+        afterKey: allSellers.aggregations.unique.after_key["context.bpp_id"]
     };
 
   }
@@ -1107,9 +1114,84 @@ class SearchService {
     }
   }
 
-  async flag(searchRequest){
+
+  async getFlag(searchRequest){
+    let source = []
+    let key;
+    switch(searchRequest.type){
+      case "seller":
+        key = "context.bpp_id"
+        source.push("sellerErrorTags", "sellerFlagged");
+        break;
+      case "item":
+        key = "item_details.id"
+        source.push("itemErrorTags","itemFlagged");
+        break;
+      case "provider":
+        key = "provider_details.id"
+        source.push("providerErrorTags","providerFlagged");
+        break;
+      default:
+        return { error:"Type must be from ['item', 'seller', 'provider']" };
+    }
+    const result = await client.search({
+      index: 'items',
+      _source: source,
+      query: {
+        term: {
+          [key]: searchRequest.id
+        }
+      }
+    })    
+
+    if (result.hits.hits.length === 0){
+      return null;
+    }
+    if (searchRequest.type === "seller"){
+      return {
+        [source[1]] : result.hits.hits[0]._source[source[1]] || false,
+        [source[0]]: result.hits.hits[0]._source[source[0]] || []
+      }
+    }
+
+    return result.hits.hits.map(hit => {
+      return {
+        [source[1]] : hit._source[source[1]] || false,
+        [source[0]]: hit._source[source[0]] || []
+      }
+    })
+  }
+
+  async getUniqueCity(searchRequest){
+    const totalCity = await client.search({
+      index: 'items',
+      size: 0,
+      aggs:{
+        cityCount: {
+          cardinality: {
+              field: 'context.city'
+          },
+        },
+      }
+    })
+
+
+    const getCities = await client.search({
+      index: 'items',
+      size: 0,
+      aggs: {
+        unique: {
+          terms: { field: "context.city" , size:totalCity.aggregations.cityCount.value }
+        }
+      }
+    });
+
+    return getCities.aggregations.unique.buckets.map(city =>  city.key)
+  }
+  
+  async updateFlag(searchRequest){
     if (!_.isBoolean(searchRequest.flagged)){
-      throw new Error("Flag can only be boolean type");
+      return { error : "Flag can only be boolean type" };
     }
 
     let source = `ctx._source.flagged = params.flagged;`
@@ -1128,9 +1210,9 @@ class SearchService {
         source = `ctx._source.providerFlagged = params.flagged; ctx._source.providerErrorTags = params.errorTag;`
         break;
       default:
-        throw new Error("Type must be from ['item', 'seller', 'provider']");
+        return { error:"Type must be from ['item', 'seller', 'provider']" };
     }
-    console.log(source)
+    
     const searchResults = await client.updateByQuery({
       index: 'items',
       query: {
@@ -1151,8 +1233,7 @@ class SearchService {
     return searchResults;
     
   }
-
-
+  
   async  getOffers(searchRequest, targetLanguage = "en") {
     try {
       let matchQuery = [];
@@ -1541,6 +1622,97 @@ class SearchService {
       throw err;
     }
   }
+
+  async getSellerIds() {
+
+    const sellerCount = await client.search({
+      index: "items",
+      size: 0,
+      aggs : {
+        seller_count: {
+          cardinality: {
+              field: 'context.bpp_id'
+          }
+        }, 
+      }
+    })
+
+    const allSellers = await client.search({
+      index: 'items',
+      aggs: {
+        unique : { 
+          terms: { field: "context.bpp_id" , size: sellerCount.aggregations.seller_count.value } 
+        }
+      }
+    });
+  
+    return{ sellers :  allSellers.aggregations.unique.buckets.map(seller => seller.key) };
+  }
+
+  async getUniqueCategories(searchRequest) {
+    
+    let matchQuery = [];
+
+    let query_obj = {
+      bool: {
+        must: matchQuery,
+      },
+    };
+  
+    if (searchRequest.domain) {
+      query_obj = {
+        bool: {
+          must: [{
+            match: {
+              "context.domain": searchRequest.domain,
+            }
+          }]
+        }
+      };
+    }
+  
+    const totalCategories = await client.search({
+      index: 'items',
+      size: 0,
+      query: query_obj,
+      aggs:{
+        categoryCount: {
+          cardinality: {
+              field: 'item_details.category_id'
+          },
+        },
+      }
+    });
+
+    const categoryCount = totalCategories.aggregations.categoryCount.value;
+  
+    if (categoryCount === 0){
+      return {
+        unique_categories: []
+      };
+    }
+
+    const getCategories = await client.search({
+      index: 'items',
+      size: 0,
+      body: {
+        query: query_obj,
+        aggs: {
+          unique: {
+            terms: {
+              field: "item_details.category_id",
+              size: categoryCount
+            }
+          }
+        }
+      }
+    });
+    const uniqueCategories = getCategories.aggregations.unique.buckets.map(category => category.key);
+
+    return {
+      unique_categories: uniqueCategories
+    };
+  }  
 }
 
 export default SearchService;

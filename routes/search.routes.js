@@ -63,19 +63,35 @@ router.get(
 );
 
 router.get(
-    '/seller', searchController.getSellerDetails
-);
-
-router.put(
-    '/flag', searchController.flag
+    '/list-sellers', searchController.getSellerDetails
 );
 
 router.get(
-    '/listProviders', searchController.listProviders
+    '/flag', searchController.getFlag
+);
+
+router.get(
+    '/list-unique-cities', searchController.getUniqueCity
+)
+
+router.put(
+    '/flag', searchController.updateFlag
+);
+
+router.get(
+    '/list-providers', searchController.listProviders
 )
 
 router.get(
-    '/displayItems', searchController.displayItems
+    '/list-items', searchController.displayItems
+)
+
+router.get(
+    '/seller-ids', searchController.getSellerIds
+)
+
+router.get(
+    '/list-unique-category', searchController.getUniqueCategory
 )
 
 export default router;

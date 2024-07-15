@@ -287,12 +287,25 @@ class SearchController {
       });
   }
 
-  flag(req, res, next) {
-    const searchRequest = req.body;
-    console.log("Got Flag Request =========>", JSON.stringify(searchRequest));
+  getSellerIds(req, res, next) {
+    searchService
+      .getSellerIds()
+      .then((response) => {
+        if (!response || response === null)
+          throw new NoRecordFoundError("No result found");
+        else res.json(response);
+      })
+      .catch((err) => {
+        next(err);
+      });
+  }  
+
+  getFlag(req, res, next) {
+    const searchRequest = req.query;
+    console.log("Got GET Flag Request =========>", JSON.stringify(searchRequest));
 
     searchService
-      .flag(searchRequest)
+      .getFlag(searchRequest)
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");
@@ -303,6 +316,38 @@ class SearchController {
       });
   }
 
+  getUniqueCity (req, res ,next){
+    const searchRequest = req.query;
+    console.log("Got GET City Request =========>", JSON.stringify(searchRequest));
+
+    searchService
+      .getUniqueCity(searchRequest)
+      .then((response) => {
+        if (!response || response === null)
+          throw new NoRecordFoundError("No result found");
+        else res.json(response);
+      })
+      .catch((err) => {
+        next(err);
+      });
+  }
+
+  updateFlag(req, res, next) {
+    const searchRequest = req.body;
+    console.log("Got Flag Request =========>", JSON.stringify(searchRequest));
+
+    searchService
+      .updateFlag(searchRequest)
+      .then((response) => {
+        if (!response || response === null)
+          throw new NoRecordFoundError("No result found");
+        else res.json(response);
+      })
+      .catch((err) => {
+        next(err);
+      });
+  }
+  
   getOffers(req, res, next) {
     const searchRequest = req.query;
 
@@ -353,6 +398,22 @@ class SearchController {
         } else {
           res.json(response);
         }
+      })
+      .catch((err) => {
+        next(err);
+      });
+  }
+
+  getUniqueCategory (req, res ,next){
+    const searchRequest = req.query;
+    console.log("Got GET City Request =========>", JSON.stringify(searchRequest));
+
+    searchService
+      .getUniqueCategories(searchRequest)
+      .then((response) => {
+        if (!response || response === null)
+          throw new NoRecordFoundError("No result found");
+        else res.json(response);
       })
       .catch((err) => {
         next(err);
