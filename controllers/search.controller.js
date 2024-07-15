@@ -320,27 +320,7 @@ class SearchController {
         next(err);
       });
   }
-
-  getErrorTags(req, res, next) {
-    const searchRequest = req.query;
-    console.log(
-      "Got Error Tags Request =========>",
-      JSON.stringify(searchRequest)
-    );
-    searchService
-      .getErrorTagsById(searchRequest)
-      .then((response) => {
-        if (!response || response.errorTags.length === 0) {
-          throw new NoRecordFoundError("No error tags found");
-        } else {
-          res.json(response);
-        }
-      })
-      .catch((err) => {
-        next(err);
-      });
-  }  
-
+  
   getOffers(req, res, next) {
     const searchRequest = req.query;
 

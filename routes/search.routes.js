@@ -71,10 +71,6 @@ router.put(
 );
 
 router.get(
-    '/flag', searchController.getErrorTags
-)
-
-router.get(
     '/list-providers', searchController.listProviders
 )
 
