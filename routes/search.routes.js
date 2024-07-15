@@ -83,7 +83,7 @@ router.get(
 )
 
 router.get(
-    '/display-items', searchController.displayItems
+    '/list-items', searchController.displayItems
 )
 
 router.get(
