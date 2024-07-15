@@ -1646,7 +1646,56 @@ class SearchService {
       }
     });
   
-    return { sellers : allSellers.aggregations.unique.buckets.map(seller => seller.key) };
+    return{ sellers :  allSellers.aggregations.unique.buckets.map(seller => seller.key) };
+  }
+
+  async getUniqueCategories(searchRequest) {
+    
+    let matchQuery = [];
+
+    let query_obj = {
+      bool: {
+        must: matchQuery,
+      },
+    };
+  
+    if (searchRequest.domain) {
+      query_obj = {
+        bool: {
+          must: [{
+            match: {
+              "context.domain": searchRequest.domain,
+            }
+          }]
+        }
+      };
+    }
+  
+    const totalCategories = await client.search({
+      index: 'items',
+      size: 0,
+      query: query_obj,
+      aggs:{
+        categoryCount: {
+          cardinality: {
+              field: 'item_details.category_id'
+          },
+        },
+      }
+    });
+  
+    const getCategories = await client.search({
+      index: 'items',
+      size: 0,
+      query: query_obj,
+      aggs: {
+        unique: {
+          terms: { field: "item_details.category_id" , size: totalCategories.aggregations.categoryCount.value }
+        }
+      }
+    });
+  
+    return getCategories.aggregations.unique.buckets.map(category => category.key);
   }  
 }
 

@@ -90,4 +90,6 @@ router.get(
     '/seller-ids', searchController.getSellerIds
 )
 
+router.get('/category', searchController.getUniqueCategory)
+
 export default router;

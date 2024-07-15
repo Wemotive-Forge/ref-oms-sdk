@@ -403,6 +403,22 @@ class SearchController {
         next(err);
       });
   }
+
+  getUniqueCategory (req, res ,next){
+    const searchRequest = req.query;
+    console.log("Got GET City Request =========>", JSON.stringify(searchRequest));
+
+    searchService
+      .getUniqueCategories(searchRequest)
+      .then((response) => {
+        if (!response || response === null)
+          throw new NoRecordFoundError("No result found");
+        else res.json(response);
+      })
+      .catch((err) => {
+        next(err);
+      });
+  }
 }
 
 export default SearchController;
