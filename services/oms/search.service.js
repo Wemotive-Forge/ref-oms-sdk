@@ -1124,7 +1124,7 @@ class SearchService {
         source.push("sellerErrorTags", "sellerFlagged");
         break;
       case "item":
-        key = "item_details.id"
+        key = "id"
         source.push("itemErrorTags","itemFlagged");
         break;
       case "provider":
@@ -1142,16 +1142,19 @@ class SearchService {
           [key]: searchRequest.id
         }
       }
-    })    
+    })   
+    
 
     if (result.hits.hits.length === 0){
       return null;
     }
     if (searchRequest.type === "seller"){
-      return {
-        [source[1]] : result.hits.hits[0]._source[source[1]] || false,
-        [source[0]]: result.hits.hits[0]._source[source[0]] || []
-      }
+      return [
+        {
+          [source[1]] : result.hits.hits[0]._source[source[1]] || false,
+          [source[0]]: result.hits.hits[0]._source[source[0]] || []
+        }
+      ]
     }
 
     return result.hits.hits.map(hit => {
@@ -1202,7 +1205,7 @@ class SearchService {
         source = `ctx._source.sellerFlagged = params.flagged; ctx._source.sellerErrorTags = params.errorTag;`
         break;
       case "item":
-        key = "item_details.id"
+        key = "id"
         source = `ctx._source.itemFlagged = params.flagged; ctx._source.itemErrorTags = params.errorTag;`
         break;
       case "provider":
