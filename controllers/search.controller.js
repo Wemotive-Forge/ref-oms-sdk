@@ -288,13 +288,8 @@ class SearchController {
   }
 
   getSellerIds(req, res, next) {
-    const searchRequest = req.query;
-    console.log(
-      "Got Seller IDs Request =========>",
-      JSON.stringify(searchRequest)
-    );
     searchService
-      .getSellerIds(searchRequest)
+      .getSellerIds()
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");

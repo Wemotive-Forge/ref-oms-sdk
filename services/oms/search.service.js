@@ -1623,9 +1623,8 @@ class SearchService {
     }
   }
 
-  async getSellerIds(searchRequest = {}, targetLanguage = "en") {
-    let query;
-  
+  async getSellerIds() {
+
     const sellerCount = await client.search({
       index: "items",
       size: 0,
@@ -1647,7 +1646,7 @@ class SearchService {
       }
     });
   
-    return{ sellers :  allSellers.aggregations.unique.buckets.map(seller => seller.key) };
+    return { sellers : allSellers.aggregations.unique.buckets.map(seller => seller.key) };
   }  
 }
 

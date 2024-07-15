@@ -71,7 +71,7 @@ router.get(
 );
 
 router.get(
-    '/city', searchController.getUniqueCity
+    '/list-unique-cities', searchController.getUniqueCity
 )
 
 router.put(
