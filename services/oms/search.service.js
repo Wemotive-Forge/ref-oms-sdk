@@ -1683,19 +1683,29 @@ class SearchService {
         },
       }
     });
+
+    const categoryCount = totalCategories.aggregations.categoryCount.value;
   
     const getCategories = await client.search({
       index: 'items',
       size: 0,
-      query: query_obj,
-      aggs: {
-        unique: {
-          terms: { field: "item_details.category_id" , size: totalCategories.aggregations.categoryCount.value }
+      body: {
+        query: query_obj,
+        aggs: {
+          unique: {
+            terms: {
+              field: "item_details.category_id",
+              size: categoryCount > 0 ? categoryCount : 10 // Use categoryCount if greater than 0, otherwise default to 10
+            }
+          }
         }
       }
     });
-  
-    return getCategories.aggregations.unique.buckets.map(category => category.key);
+    const uniqueCategories = getCategories.aggregations.unique.buckets.map(category => category.key);
+
+    return {
+      unique_categories: uniqueCategories
+    };
   }  
 }
 
