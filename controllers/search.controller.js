@@ -287,6 +287,24 @@ class SearchController {
       });
   }
 
+  getSellerIds(req, res, next) {
+    const searchRequest = req.query;
+    console.log(
+      "Got Seller IDs Request =========>",
+      JSON.stringify(searchRequest)
+    );
+    searchService
+      .getSellerIds(searchRequest)
+      .then((response) => {
+        if (!response || response === null)
+          throw new NoRecordFoundError("No result found");
+        else res.json(response);
+      })
+      .catch((err) => {
+        next(err);
+      });
+  }  
+
   flag(req, res, next) {
     const searchRequest = req.body;
     console.log("Got Flag Request =========>", JSON.stringify(searchRequest));
@@ -302,6 +320,26 @@ class SearchController {
         next(err);
       });
   }
+
+  getErrorTags(req, res, next) {
+    const searchRequest = req.query;
+    console.log(
+      "Got Error Tags Request =========>",
+      JSON.stringify(searchRequest)
+    );
+    searchService
+      .getErrorTagsById(searchRequest)
+      .then((response) => {
+        if (!response || response.errorTags.length === 0) {
+          throw new NoRecordFoundError("No error tags found");
+        } else {
+          res.json(response);
+        }
+      })
+      .catch((err) => {
+        next(err);
+      });
+  }  
 
   getOffers(req, res, next) {
     const searchRequest = req.query;
