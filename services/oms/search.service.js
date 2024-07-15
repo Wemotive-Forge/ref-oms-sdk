@@ -1113,9 +1113,84 @@ class SearchService {
     }
   }
 
-  async flag(searchRequest){
+
+  async getFlag(searchRequest){
+    let source = []
+    let key;
+    switch(searchRequest.type){
+      case "seller":
+        key = "context.bpp_id"
+        source.push("sellerErrorTags", "sellerFlagged");
+        break;
+      case "item":
+        key = "item_details.id"
+        source.push("itemErrorTags","itemFlagged");
+        break;
+      case "provider":
+        key = "provider_details.id"
+        source.push("providerErrorTags","providerFlagged");
+        break;
+      default:
+        return { error:"Type must be from ['item', 'seller', 'provider']" };
+    }
+    const result = await client.search({
+      index: 'items',
+      _source: source,
+      query: {
+        term: {
+          [key]: searchRequest.id
+        }
+      }
+    })    
+
+    if (result.hits.hits.length === 0){
+      return null;
+    }
+    if (searchRequest.type === "seller"){
+      return {
+        [source[1]] : result.hits.hits[0]._source[source[1]] || false,
+        [source[0]]: result.hits.hits[0]._source[source[0]] || []
+      }
+    }
+
+    return result.hits.hits.map(hit => {
+      return {
+        [source[1]] : hit._source[source[1]] || false,
+        [source[0]]: hit._source[source[0]] || []
+      }
+    })
+  }
+
+  async getUniqueCity(searchRequest){
+    const totalCity = await client.search({
+      index: 'items',
+      size: 0,
+      aggs:{
+        cityCount: {
+          cardinality: {
+              field: 'context.city'
+          },
+        },
+      }
+    })
+
+
+    const getCities = await client.search({
+      index: 'items',
+      size: 0,
+      aggs: {
+        unique: {
+          terms: { field: "context.city" , size:totalCity.aggregations.cityCount.value }
+        }
+      }
+    });
+
+    return getCities.aggregations.unique.buckets.map(city =>  city.key)
+  }
+  
+  async updateFlag(searchRequest){
     if (!_.isBoolean(searchRequest.flagged)){
-      throw new Error("Flag can only be boolean type");
+      return { error : "Flag can only be boolean type" };
     }
 
     let source = `ctx._source.flagged = params.flagged;`
@@ -1134,9 +1209,9 @@ class SearchService {
         source = `ctx._source.providerFlagged = params.flagged; ctx._source.providerErrorTags = params.errorTag;`
         break;
       default:
-        throw new Error("Type must be from ['item', 'seller', 'provider']");
+        return { error:"Type must be from ['item', 'seller', 'provider']" };
     }
-    console.log(source)
+    
     const searchResults = await client.updateByQuery({
       index: 'items',
       query: {

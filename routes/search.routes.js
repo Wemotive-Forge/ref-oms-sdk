@@ -66,6 +66,14 @@ router.get(
     '/seller', searchController.getSellerDetails
 );
 
+router.get(
+    '/flag', searchController.getFlag
+);
+
+router.get(
+    '/city', searchController.getUniqueCity
+)
+
 router.put(
     '/flag', searchController.flag
 );

@@ -287,12 +287,44 @@ class SearchController {
       });
   }
 
-  flag(req, res, next) {
+  getFlag(req, res, next) {
+    const searchRequest = req.query;
+    console.log("Got GET Flag Request =========>", JSON.stringify(searchRequest));
+
+    searchService
+      .getFlag(searchRequest)
+      .then((response) => {
+        if (!response || response === null)
+          throw new NoRecordFoundError("No result found");
+        else res.json(response);
+      })
+      .catch((err) => {
+        next(err);
+      });
+  }
+
+  getUniqueCity (req, res ,next){
+    const searchRequest = req.query;
+    console.log("Got GET City Request =========>", JSON.stringify(searchRequest));
+
+    searchService
+      .getUniqueCity(searchRequest)
+      .then((response) => {
+        if (!response || response === null)
+          throw new NoRecordFoundError("No result found");
+        else res.json(response);
+      })
+      .catch((err) => {
+        next(err);
+      });
+  }
+
+  updateFlag(req, res, next) {
     const searchRequest = req.body;
     console.log("Got Flag Request =========>", JSON.stringify(searchRequest));
 
     searchService
-      .flag(searchRequest)
+      .updateFlag(searchRequest)
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");
