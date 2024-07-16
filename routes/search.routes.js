@@ -94,4 +94,11 @@ router.get(
     '/list-unique-category', searchController.getUniqueCategory
 )
 
+router.get(
+    '/provider-ids', searchController.getProviderIds
+)
+
+router.get(
+    '/location-ids', searchController.getLocationIds
+)
 export default router;
