@@ -416,6 +416,45 @@ class SearchController {
         next(err);
       });
   }
+
+  getProviderIds(req, res, next) {
+    const searchRequest = req.query;
+  
+    console.log({ searchRequest });
+  
+    searchService
+      .getProviderIds(searchRequest)
+      .then((response) => {
+        if (!response || response === null) {
+          throw new NoRecordFoundError("No result found");
+        } else {
+          res.json(response);
+        }
+      })
+      .catch((err) => {
+        next(err);
+      });
+    }
+
+    getLocationIds(req, res, next) {
+      const searchRequest = req.query;
+    
+      console.log({ searchRequest });
+    
+      searchService
+        .getLocationIds(searchRequest)
+        .then((response) => {
+          if (!response || response.locations.length === 0) {
+            throw new NoRecordFoundError("No result found");
+          } else {
+            res.json(response);
+          }
+        })
+        .catch((err) => {
+          next(err);
+        });
+    }
+    
 }
 
 export default SearchController;
