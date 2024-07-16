@@ -147,40 +147,40 @@ class SearchService {
                 },
                 size: searchRequest.limit
             },
-            aggs: {
-                provider_count: {
-                    cardinality: {
-                        field: 'provider_details.id'
-                    }
-                }, 
-                seller_flag_count: {
-                  filter: {
-                      term: {
-                          sellerFlag: true
-                      }
-                  }
-                },
-                provider_flagged_count: {
-                    filter: {
-                        term: {
-                            providerFlag: true
-                        }
-                    }
-                },
-                item_count: {
+          aggs: {
+              provider_count: {
                   cardinality: {
-                      field: 'item_details.id'
-                  },
-                },
-                item_flagged_count: {
+                      field: 'provider_details.id'
+                  }
+              }, 
+              seller_flag_count: {
+                filter: {
+                    term: {
+                        sellerFlag: true
+                    }
+                }
+              },
+              provider_flagged_count: {
                   filter: {
                       term: {
-                          itemFlag: true
+                          providerFlag: true
                       }
                   }
               },
+              item_count: {
+                cardinality: {
+                    field: 'item_details.id'
+                },
+              },
+              item_flagged_count: {
+                filter: {
+                    term: {
+                        itemFlag: true
+                    }
+                }
             },
-          }
+          },
+        }
       }
     });
 
@@ -193,6 +193,7 @@ class SearchService {
     const result = _.map(grouped, (group, key) => { 
       return {
             bpp_id: key,
+            label: key,
             item_count: group[0].item_count.value,
             provider_count: group[0].provider_count.value,
             flagged_items_count: group[0].item_flagged_count.doc_count,
@@ -1142,8 +1143,7 @@ class SearchService {
           [key]: searchRequest.id
         }
       }
-    })   
-    
+    })       
 
     if (result.hits.hits.length === 0){
       return null;
@@ -1189,7 +1189,7 @@ class SearchService {
       }
     });
 
-    return getCities.aggregations.unique.buckets.map(city =>  city.key)
+    return getCities.aggregations.unique.buckets.map(city =>  {return {code: city.key , label: city.key}})
   }
   
   async updateFlag(searchRequest){
@@ -1592,7 +1592,8 @@ class SearchService {
             'item_details.price.value',
             'item_details.quantity.available.count',
             'item_details.descriptor.name',
-            'itemFlagged'
+            'itemFlagged',
+            "itemErrorTags"
           ],
         },
       })
@@ -1607,7 +1608,8 @@ class SearchService {
         images: hit._source.item_details.descriptor.images,
         price: hit._source.item_details.price.value,
         quantity: hit._source.item_details.quantity.available.count,
-        itemFlagged: hit._source.itemFlagged
+        itemFlagged: hit._source.itemFlagged || false,
+        itemErrorTags: hit._source.itemErrorTags || []
       }));
 
       // Get the total count of results
@@ -1642,14 +1644,20 @@ class SearchService {
 
     const allSellers = await client.search({
       index: 'items',
+      size:0,
       aggs: {
-        unique : { 
-          terms: { field: "context.bpp_id" , size: sellerCount.aggregations.seller_count.value } 
+        unique:{
+          composite: {
+            size: sellerCount.aggregations.seller_count.value,
+            sources: [
+              { bpp_id: { terms: { field: "context.bpp_id" } }},
+            ],
+          },
         }
       }
     });
   
-    return{ sellers :  allSellers.aggregations.unique.buckets.map(seller => seller.key) };
+    return{ sellers :  allSellers.aggregations.unique.buckets.map(seller => {return { id : seller.key.bpp_id , label:seller.key.bpp_id}}) };
   }
 
   async getUniqueCategories(searchRequest) {
@@ -1710,7 +1718,7 @@ class SearchService {
         }
       }
     });
-    const uniqueCategories = getCategories.aggregations.unique.buckets.map(category => category.key);
+    const uniqueCategories = getCategories.aggregations.unique.buckets.map(category => { return {code: category.key, label: category.key} });
 
     return {
       unique_categories: uniqueCategories
