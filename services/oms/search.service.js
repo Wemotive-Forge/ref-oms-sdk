@@ -1622,6 +1622,53 @@ class SearchService {
           },
         });
       }
+      // Add customisation filter
+      if (searchRequest.customisation !== undefined) {
+        if (searchRequest.customisation === "false") {
+          // If customisation is set to "false", we want to include items where:
+          matchQuery.push({
+            bool: {
+              should: [
+                // 1. "item_details.tags.code" does not exist
+                {
+                  bool: {
+                    must_not: {
+                      exists: {
+                        field: "item_details.tags.code",
+                      },
+                    },
+                  },
+                },
+                // 2. "item_details.tags.code" is not "custom_group"
+                {
+                  bool: {
+                    must_not: {
+                      term: {
+                        "item_details.tags.code": "custom_group",
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+          });
+        } else {
+          // Otherwise, include items where "item_details.tags.code" is "custom_group"
+          matchQuery.push({
+            match: {
+              "item_details.tags.code": "custom_group",
+            },
+          });
+        }
+      }
+      // Add variant filter
+      if (searchRequest.variant !== undefined) {
+        matchQuery.push({
+          exists: {
+            field: "item_details.parent_item_id",
+          },
+        });
+      }
 
       let query_obj = {
         bool: {
@@ -1664,7 +1711,7 @@ class SearchService {
       // Extract data from Elasticsearch response
       let items = queryResults.hits.hits.map((hit) => {
         const itemDetails = hit._source.item_details;
-        const customisation = itemDetails.tags?.some(tag => tag.code === 'customisation_group') || false;
+        const customisation = itemDetails.tags?.some(tag => tag.code === 'custom_group') || false;
         const variant = itemDetails.parent_item_id ? true : false;
         const type = itemDetails.type === 'customisation' ? 'customisation' : 'item';
 
