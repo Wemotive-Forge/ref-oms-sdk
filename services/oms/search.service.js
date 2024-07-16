@@ -1172,7 +1172,7 @@ class SearchService {
     })
   }
 
-  async getUniqueCity(searchRequest){
+  async getUniqueCity(){
     const totalCity = await client.search({
       index: 'items',
       size: 0,

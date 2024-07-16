@@ -317,11 +317,8 @@ class SearchController {
   }
 
   getUniqueCity (req, res ,next){
-    const searchRequest = req.query;
-    console.log("Got GET City Request =========>", JSON.stringify(searchRequest));
-
     searchService
-      .getUniqueCity(searchRequest)
+      .getUniqueCity()
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");
