@@ -1591,6 +1591,14 @@ class SearchService {
         });
       }
 
+      if (searchRequest.location) {
+        matchQuery.push({
+          match: {
+            "location_details.id": searchRequest.location,
+          },
+        });
+      }
+
       // Ensure only first items are considered
       matchQuery.push({
         match: {
@@ -1611,22 +1619,6 @@ class SearchService {
         matchQuery.push({
           match: {
             type: searchRequest.type,
-          },
-        });
-      }
-
-      if (searchRequest.provider) {
-        matchQuery.push({
-          match: {
-            "provider_details.id": searchRequest.provider,
-          },
-        });
-      }
-
-      if (searchRequest.location) {
-        matchQuery.push({
-          match: {
-            "location_details.id": searchRequest.location,
           },
         });
       }
@@ -1670,22 +1662,31 @@ class SearchService {
       });
 
       // Extract data from Elasticsearch response
-      let items = queryResults.hits.hits.map((hit) => ({
-        item_details: hit._source.item_details,
-        item_id: hit._source.id,
-        item_name: hit._source.item_details.descriptor.name,
-        type: hit._source.type,
-        seller_app: hit._source.context.bpp_id,
-        seller_name: hit._source.bpp_details.name,
-        provider_id: hit._source.provider_details.id,
-        location_id: hit._source.location_details?.id,
-        provider_name: hit._source.provider_details.descriptor.name,
-        images: hit._source.item_details.descriptor.images,
-        price: hit._source.item_details.price.value,
-        quantity: hit._source.item_details.quantity.available.count,
-        flag: hit._source.item_flag || false,
-        error_tags: hit._source.item_error_tags || [],
-      }));
+      let items = queryResults.hits.hits.map((hit) => {
+        const itemDetails = hit._source.item_details;
+        const customisation = itemDetails.tags?.some(tag => tag.code === 'customisation_group') || false;
+        const variant = itemDetails.parent_item_id ? true : false;
+        const type = itemDetails.type === 'customisation' ? 'customisation' : 'item';
+
+        return {
+          item_details: itemDetails,
+          item_id: hit._source.id,
+          item_name: itemDetails.descriptor.name,
+          type: type,
+          seller_app: hit._source.context.bpp_id,
+          seller_name: hit._source.bpp_details.name,
+          provider_id: hit._source.provider_details.id,
+          location_id: hit._source.location_details?.id,
+          provider_name: hit._source.provider_details.descriptor.name,
+          images: itemDetails.descriptor.images,
+          price: itemDetails.price.value,
+          quantity: itemDetails.quantity.available.count,
+          flag: hit._source.item_flag || false,
+          error_tags: hit._source.item_error_tags || [],
+          customisation: customisation,
+          variant: variant
+        };
+      });
 
       // Get the total count of results
       let totalCount = queryResults.hits.total.value;
@@ -1815,6 +1816,172 @@ class SearchService {
     return {
       unique_categories: uniqueCategories,
     };
+  }
+
+  async getProviderIds (searchRequest = {}){
+    try {
+      let matchQuery = [];
+  
+      // Add bpp_id filter if it exists
+      if (searchRequest.bpp_id) {
+        matchQuery.push({
+          match: {
+            "context.bpp_id": searchRequest.bpp_id,
+          },
+        });
+      }
+  
+      // Construct the base query object
+      const baseQuery = {
+        bool: {
+          must: matchQuery,
+        },
+      };
+  
+      // Step 1: Count the unique providers based on bpp_id
+      const providerCount = await client.search({
+        index: "items",
+        size: 0,
+        body: {
+          query: matchQuery.length ? baseQuery : undefined, // Only add the query if there are conditions
+          aggs: {
+            provider_count: {
+              cardinality: {
+                field: 'provider_details.id',
+              },
+            },
+          },
+        },
+      });
+  
+      // Step 2: Retrieve unique provider IDs and names
+      const uniqueProviders = await client.search({
+        index: 'items',
+        size: 0,
+        body: {
+          query: matchQuery.length ? baseQuery : undefined, // Only add the query if there are conditions
+          aggs: {
+            unique: {
+              composite: {
+                size: providerCount.aggregations.provider_count.value,
+                sources: [
+                  { provider_id: { terms: { field: "provider_details.id" } } },
+                ],
+              },
+              aggs: {
+                top_provider_hits: {
+                  top_hits: {
+                    _source: ["provider_details.descriptor.name", "provider_details.id"],
+                    size: 1,
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+  
+      // Extract the provider data from aggregations
+      const providers = uniqueProviders.aggregations.unique.buckets.map((bucket) => {
+        const topHit = bucket.top_provider_hits.hits.hits[0]._source;
+        return {
+          name: topHit.provider_details.descriptor.name,
+          id: topHit.provider_details.id,
+        };
+      });
+  
+      // Return the provider data wrapped in a "providers" key
+      return {
+        providers,
+      };
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  async getLocationIds(searchRequest = {}){
+    try {
+      let matchQuery = [];
+  
+      // Add providerId filter if it exists
+      if (searchRequest.providerId) {
+        matchQuery.push({
+          match: {
+            "provider_details.id": searchRequest.providerId,
+          },
+        });
+      }
+  
+      // Construct the base query object
+      const baseQuery = {
+        bool: {
+          must: matchQuery,
+        },
+      };
+  
+      // Step 1: Count the unique locations based on providerId
+      const locationCount = await client.search({
+        index: "items",
+        size: 0,
+        body: {
+          query: matchQuery.length ? baseQuery : undefined, // Only add the query if there are conditions
+          aggs: {
+            location_count: {
+              cardinality: {
+                field: 'location_details.id',
+              },
+            },
+          },
+        },
+      });
+  
+      // Step 2: Retrieve unique location IDs and names
+      const uniqueLocations = await client.search({
+        index: 'items',
+        size: 0,
+        body: {
+          query: matchQuery.length ? baseQuery : undefined, // Only add the query if there are conditions
+          aggs: {
+            unique: {
+              composite: {
+                size: locationCount.aggregations.location_count.value,
+                sources: [
+                  { location_id: { terms: { field: "location_details.id" } } },
+                ],
+              },
+              aggs: {
+                top_location_hits: {
+                  top_hits: {
+                    _source: ["location_details.address.city", "location_details.address.area_code", "location_details.id"],
+                    size: 1,
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+  
+      // Extract the location data from aggregations
+      const locations = uniqueLocations.aggregations.unique.buckets.map((bucket) => {
+        const topHit = bucket.top_location_hits.hits.hits[0]._source;
+        const cityName = topHit.location_details.address.city || "";
+        const areaCode = topHit.location_details.address.area_code || "";
+        const name = `${cityName}_${areaCode}`;
+  
+        return {
+          name,
+          id: topHit.location_details.id,
+        };
+      });
+  
+      // Return the location data wrapped in a "locations" key
+      return {
+        locations,
+      };
+    } catch (err) {
+      throw err;
+    }
   }
 }
 
