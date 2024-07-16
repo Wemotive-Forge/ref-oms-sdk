@@ -1,6 +1,6 @@
 import _ from "lodash";
 import client from '../../database/elasticSearch.js';
-import NoRecordFoundError from "../../lib/errors/no-record-found.error.js";
+import MappedCity from "../../utils/mappedCityCode.js";
 
 class SearchService {
   isBppFilterSpecified(context = {}) {
@@ -1196,7 +1196,12 @@ class SearchService {
       }
     });
 
-    return getCities.aggregations.unique.buckets.map(city =>  {return {code: city.key , label: city.key}})
+    const cityNames = getCities.aggregations.unique.buckets.flatMap((bucket) => {
+      const stdCode = bucket.key.replace('std:', '');
+      return MappedCity(stdCode);
+    });
+  
+    return cityNames;
   }
   
   async updateFlag(searchRequest){
@@ -1464,6 +1469,7 @@ class SearchService {
           return null; // Skip if topHit is undefined
         }
         console.log("BUCKET", bucket);
+        const locationDetails = topHit.location_details;
         const locationId = bucket.key.location_id;
 
         return {
@@ -1474,6 +1480,7 @@ class SearchService {
           item_count: itemCount, // Number of items
           flagged_item_count: flaggedItemCount,
           location_id: locationId,
+          location_details: locationDetails,
           location: topHit.location_details.address.locality,
           providerFlagged: topHit.providerFlagged === true ? true : false,
         };
