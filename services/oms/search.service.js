@@ -1,6 +1,6 @@
 import _ from "lodash";
 import client from '../../database/elasticSearch.js';
-import NoRecordFoundError from "../../lib/errors/no-record-found.error.js";
+import MappedCity from "../../utils/mappedCityCode.js";
 
 class SearchService {
   isBppFilterSpecified(context = {}) {
@@ -137,17 +137,23 @@ class SearchService {
           }, 
           unique: {
             composite: {
-                after: afterKey,
-                sources: {
-                    "context.bpp_id": {
-                        terms: {
-                            field: "context.bpp_id"
-                        }
-                    }
-                },
-                size: searchRequest.limit
+              after: afterKey,
+              sources: {
+                  "context.bpp_id": {
+                      terms: {
+                          field: "context.bpp_id"
+                      }
+                  }
+              },
+              size: searchRequest.limit
             },
           aggs: {
+              "products": {
+                "top_hits": {
+                    "size": 1,
+                    "_source": ["bpp_details.bpp_id", "bpp_details.name"]
+                }
+              },
               provider_count: {
                   cardinality: {
                       field: 'provider_details.id'
@@ -193,7 +199,7 @@ class SearchService {
     const result = _.map(grouped, (group, key) => { 
       return {
             bpp_id: key,
-            label: key,
+            label: group[0].products.hits.hits[0]._source.bpp_details.name,
             item_count: group[0].item_count.value,
             provider_count: group[0].provider_count.value,
             flagged_items_count: group[0].item_flagged_count.doc_count,
@@ -201,6 +207,7 @@ class SearchService {
             sellerFlagged : group[0].seller_flag_count.doc_count > 0,
         }
     });
+    
     
     return {
         sellers: result,
@@ -1165,7 +1172,7 @@ class SearchService {
     })
   }
 
-  async getUniqueCity(searchRequest){
+  async getUniqueCity(){
     const totalCity = await client.search({
       index: 'items',
       size: 0,
@@ -1189,7 +1196,12 @@ class SearchService {
       }
     });
 
-    return getCities.aggregations.unique.buckets.map(city =>  {return {code: city.key , label: city.key}})
+    const cityNames = getCities.aggregations.unique.buckets.flatMap((bucket) => {
+      const stdCode = bucket.key.replace('std:', '');
+      return MappedCity(stdCode);
+    });
+  
+    return cityNames;
   }
   
   async updateFlag(searchRequest){
@@ -1457,6 +1469,7 @@ class SearchService {
           return null; // Skip if topHit is undefined
         }
         console.log("BUCKET", bucket);
+        const locationDetails = topHit.location_details;
         const locationId = bucket.key.location_id;
 
         return {
@@ -1467,6 +1480,7 @@ class SearchService {
           item_count: itemCount, // Number of items
           flagged_item_count: flaggedItemCount,
           location_id: locationId,
+          location_details: locationDetails,
           location: topHit.location_details.address.locality,
           providerFlagged: topHit.providerFlagged === true ? true : false,
         };
@@ -1642,22 +1656,30 @@ class SearchService {
       }
     })
 
-    const allSellers = await client.search({
-      index: 'items',
-      size:0,
-      aggs: {
-        unique:{
-          composite: {
-            size: sellerCount.aggregations.seller_count.value,
-            sources: [
-              { bpp_id: { terms: { field: "context.bpp_id" } }},
-            ],
-          },
+      const allSellers = await client.search({
+        "size": 0,
+        "aggs": {
+            "unique_sellers": {
+                "terms": {
+                    "field": "bpp_details.bpp_id",
+                    "size" : sellerCount.aggregations.seller_count.value,
+                },
+                "aggs": {
+                    "products": {
+                        "top_hits": {
+                            "size": 1,
+                            "_source": ["bpp_details.bpp_id", "bpp_details.name"]
+                        }
+                    }
+                }
+            }
         }
-      }
-    });
+      });
+    const sellers = allSellers.aggregations.unique_sellers.buckets.map(seller => { 
+      return { id : seller.key , label:seller.products.hits.hits[0]._source.bpp_details.name}
+    })
   
-    return{ sellers :  allSellers.aggregations.unique.buckets.map(seller => {return { id : seller.key.bpp_id , label:seller.key.bpp_id}}) };
+    return sellers ;
   }
 
   async getUniqueCategories(searchRequest) {
