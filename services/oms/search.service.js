@@ -430,11 +430,7 @@ class SearchService {
     }
   }
 
-  async getItemDetails(
-    searchRequest = {},
-    targetLanguage = "en",
-    errorTags = []
-  ) {
+  async getItemDetails(searchRequest = {}, targetLanguage = "en") {
     try {
       // providerIds=ondc-mock-server-dev.thewitslab.com_ONDC:RET10_ondc-mock-server-dev.thewitslab.com
       let matchQuery = [];
@@ -464,30 +460,9 @@ class SearchService {
       });
 
       let item_details = null;
-      let indexName = null; // Initialize a variable to store the index name
       if (queryResults.hits.hits.length > 0) {
         item_details = queryResults.hits.hits[0]._source; // Return the source of the first hit
-        indexName = queryResults.hits.hits[0]._index; // Get the index name from the first hit
-        console.log("Index Name", indexName);
         item_details.customisation_items = [];
-        item_details.errorTags = errorTags; // Add errorTags from params
-
-        // Check for ImageMissing
-        if (
-          !item_details.item_details.descriptor.images ||
-          item_details.item_details.descriptor.images.length === 0
-        ) {
-          if (!errorTags.includes("ImageMissing")) {
-            errorTags.push("ImageMissing");
-          }
-        }
-
-        //Check for NameMissing
-        if (!item_details.item_details.descriptor.name) {
-          if (!errorTags.includes("NameMissing")) {
-            errorTags.push("NameMissing");
-          }
-        }
 
         // add variant details if available
         if (item_details.item_details.parent_item_id) {
@@ -521,6 +496,13 @@ class SearchService {
             },
           });
 
+          matchQuery.push(
+            {
+              match: {
+                language: targetLanguage,
+              },
+            })
+
           let query_obj = {
             bool: {
               must: matchQuery,
@@ -529,10 +511,11 @@ class SearchService {
 
           let queryResults = await client.search({
             query: query_obj,
+            size:100
           });
 
           item_details.related_items = queryResults.hits.hits.map(
-            (hit) => hit._source
+            (hit) => hit._source,
           );
         } else if (item_details.customisation_groups.length > 0) {
           //fetch all customisation items - customisation_group_id
@@ -554,6 +537,14 @@ class SearchService {
               type: "customization",
             },
           });
+
+          customisationQuery.push(
+            {
+              match: {
+                language: targetLanguage,
+              },
+            });
+            
           // Create the query object
           let query_obj = {
             bool: {
@@ -563,46 +554,17 @@ class SearchService {
 
           let queryResults = await client.search({
             query: query_obj,
+            size: 100
           });
 
           console.log(queryResults);
           item_details.customisation_items = queryResults.hits.hits.map(
-            (hit) => hit._source
+            (hit) => hit._source,
           );
         }
-        // Save the item details back to Elasticsearch with errorTags
-        let savedRes = await client.index({
-          index: indexName, // Use the dynamically retrieved index name
-          id: item_details.id,
-          body: item_details,
-        });
-
-        console.log("SAVED RESPONSE", savedRes);
-
-        // Retrieve all items where errorTags include 'ImageMissing', 'NameMissing'
-        let errorTagQuery = {
-          bool: {
-            must: [
-              {
-                terms: {
-                  errorTags: ["ImageMissing", "NameMissing"],
-                },
-              },
-            ],
-          },
-        };
-
-        let errorTagResults = await client.search({
-          index: indexName, // Use the dynamically retrieved index name
-          query: errorTagQuery,
-        });
-
-        let itemsWithImageMissing = errorTagResults.hits.hits.map(
-          (hit) => hit._source
-        );
-        console.log("Items With Image Missing:", itemsWithImageMissing);
       }
 
+      item_details.locations = [item_details.location_details]
       //            console.log("itemdetails--->",item_details)
       return item_details;
 
