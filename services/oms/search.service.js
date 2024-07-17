@@ -199,7 +199,7 @@ class SearchService {
     const result = _.map(grouped, (group, key) => {
       return {
         bpp_id: key,
-        label: group[0].products.hits.hits[0]._source.bpp_details.name,
+        seller_name: group[0].products.hits.hits[0]._source.bpp_details.name,
         item_count: group[0].item_count.value,
         provider_count: group[0].provider_count.value,
         flagged_items_count: group[0].item_flagged_count.doc_count,
@@ -1465,6 +1465,7 @@ class SearchService {
             provider_details: topHit.provider_details,
             name: topHit.provider_details.descriptor.name, // BPP ID as name
             city: topHit.context.city,
+            seller_name:topHit.bpp_details?.name??"",
             seller_app: topHit.context.bpp_id, // Seller app
             item_count: itemCount, // Number of items
             flagged_item_count: flaggedItemCount,
