@@ -1509,7 +1509,7 @@ class SearchService {
             location_id: locationId,
             location_details: locationDetails,
             location: topHit.location_details.address.locality,
-            provider_flag: topHit.provider_flag === true ? true : false,
+            flag: topHit.provider_flag === true ? true : false,
           };
         })
         .filter((provider) => provider !== null); // Filter out null values
