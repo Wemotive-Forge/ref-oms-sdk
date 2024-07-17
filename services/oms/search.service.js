@@ -1513,18 +1513,18 @@ class SearchService {
         });
       }
 
-      if (searchRequest.providerIds) {
+      if (searchRequest.provider) {
         matchQuery.push({
           match: {
-            "provider_details.id": searchRequest.providerIds,
+            "provider_details.id": searchRequest.provider,
           },
         });
       }
 
-      if (searchRequest.categoryIds) {
+      if (searchRequest.category) {
         matchQuery.push({
           match: {
-            "item_details.category_id": searchRequest.categoryIds,
+            "item_details.category_id": searchRequest.category,
           },
         });
       }
@@ -1561,6 +1561,17 @@ class SearchService {
         });
       }
 
+      
+
+      if (searchRequest.bpp_id) {
+        matchQuery.push({
+          match: {
+            "context.bpp_id": searchRequest.bpp_id,
+          },
+        });
+      }
+
+
       // Ensure only first items are considered
       matchQuery.push({
         match: {
@@ -1569,10 +1580,10 @@ class SearchService {
       });
 
       // Add flag filter
-      if (searchRequest.flag !== undefined) {
+      if (searchRequest.flagged !== undefined) {
         matchQuery.push({
           match: {
-            item_flag: searchRequest.flag,
+            item_flag: searchRequest.flagged,
           },
         });
       }
