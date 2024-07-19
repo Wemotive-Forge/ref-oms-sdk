@@ -1379,15 +1379,8 @@ class SearchService {
         });
       }
 
-      // Add a filter for variants
-      matchQuery.push({
-        match: {
-          is_first: true,
-        },
-      });
-
       // Add flag filter
-      if (searchRequest.flag !== undefined) {
+      if (searchRequest.flag) {
         matchQuery.push({
           match: {
             provider_flag: searchRequest.flag,
@@ -1404,89 +1397,96 @@ class SearchService {
 
       // Calculate pagination parameters
       let size = parseInt(searchRequest.limit);
-      // let page = parseInt(searchRequest.pageNumber);
-      // const from = (page - 1) * size;
+
 
       // Perform the search with pagination and aggregations
-      let queryResults = await client.search({
+      const locationProviderFlags = await client.search({
         index: "items",
-        body: {
-          query: query_obj,
-          //from: from, // Fetch all results initially, pagination will be handled manually
-          size: size,
-          aggs: {
-            unique_provider_location: {
-              composite: {
-                size: size, // Number of results to return per page
-                sources: [
-                  { provider_id: { terms: { field: "provider_details.id" } } },
-                  { location_id: { terms: { field: "location_details.id" } } },
-                ],
-                after: searchRequest.afterKey
-                  ? {
-                      provider_id: searchRequest.afterKey.provider_id,
-                      location_id: searchRequest.afterKey.location_id,
-                    }
-                  : undefined,
-              },
-              aggs: {
-                item_count: {
-                  cardinality: {
-                    field: "item_details.id",
-                  },
-                }, // Count items for each provider-location combination
-                flagged_count: { filter: { term: { provider_flag: true } } },
-                top_hits: { top_hits: { size: 1 } }, // Get top hit for additional details
-              },
-            },
+        size:0,
+        aggs: {
+          total_providers: {
+            cardinality: {
+              field : "provider_details.id"
+            }
           },
-        },
+          unique_providers_location: {
+            composite: {
+              sources:  [
+                { provider_id: { terms: { field: "provider_details.id" } } },
+              ],
+              size: size,
+              after: searchRequest.afterKey
+                  ? { provider_id: searchRequest.afterKey }
+                  : undefined,
+            },
+            
+            aggs: {
+              "locations":{
+                terms: {field: "location_details.id"},
+                aggs: {
+                  flagged_count: { filter: { term: { item_flag: true } } },
+                  top_hits: { top_hits: { size: 1 } }, // Get top hit for additional details
+                }
+              },
+              "products_without_locations_id": {
+                "missing": { "field": "location_details.id" },
+                aggs: {
+                  flagged_count: { filter: { term: { item_flag: true } } },
+                  top_hits: { top_hits: { size: 1 } }, // Get top hit for additional details
+                }
+              },
+
+            },
+          }
+        }
       });
 
-      //return queryResults
+      const response = [];
 
-      // Extract the provider data and aggregations
-      let providers = queryResults.aggregations.unique_provider_location.buckets
-        .flatMap((bucket) => {
-          const itemCount = bucket.item_count.value;
-          const flaggedItemCount = bucket.flagged_count.doc_count;
-          const topHit = bucket.top_hits.hits.hits[0]?._source; // Safely accessing top_hits
-
-          console.log("TOP HIT", topHit);
-
-          if (!topHit) {
-            return null; // Skip if topHit is undefined
-          }
-          console.log("BUCKET", bucket);
-          const locationDetails = topHit.location_details;
-          const locationId = bucket.key.location_id;
-
-          return {
+      locationProviderFlags.aggregations.unique_providers_location.buckets.forEach(bucket => {
+          bucket["locations"].buckets.forEach((locationBucket)=>{
+          const topHit = locationBucket.top_hits.hits.hits[0]._source;
+          response.push ({
             provider_details: topHit.provider_details,
             name: topHit.provider_details.descriptor.name, // BPP ID as name
             city: topHit.context.city,
             seller_name:topHit.bpp_details?.name??"",
             seller_app: topHit.context.bpp_id, // Seller app
-            item_count: itemCount, // Number of items
-            flagged_item_count: flaggedItemCount,
-            location_id: locationId,
-            location_details: locationDetails,
+            item_count: locationBucket.doc_count, // Number of items
+            flagged_item_count: locationBucket.flagged_count.doc_count,
+            location_id: locationBucket.key,
+            location_details: topHit.location_details,
             location: topHit.location_details.address.locality,
-            flag: topHit.provider_flag === true ? true : false,
-          };
+            flag: topHit.provider_flag || false,
+          })
+
+          if (bucket["products_without_locations_id"].doc_count > 0){
+            const topHit = bucket.products_without_locations_id.top_hits.hits.hits[0]._source;
+            response.push ({
+              provider_details: topHit.provider_details,
+              name: topHit.provider_details.descriptor.name, // BPP ID as name
+              city: topHit.context.city,
+              seller_name:topHit.bpp_details?.name??"",
+              seller_app: topHit.context.bpp_id, // Seller app
+              item_count: bucket.products_without_locations_id.doc_count, // Number of items
+              flagged_item_count: bucket.products_without_locations_id.flagged_count.doc_count ,
+              location_id: null,
+              location_details: null,
+              location: null,
+              flag: topHit.provider_flag || false,
+            })
+          }
+         
         })
-        .filter((provider) => provider !== null); // Filter out null values
+      });
 
-      let afterKey =
-        queryResults.aggregations.unique_provider_location.after_key;
 
-      // Return the total count and the sources
       return {
         response: {
-          count: providers.length,
-          data: providers,
-          pages: Math.ceil(providers.length / size), // Calculate the total number of pages
-          afterKey,
+          count: locationProviderFlags.aggregations.total_providers.value,
+          data: response,
+          pages: Math.ceil(locationProviderFlags.aggregations.total_providers.value / size), 
+          afterKey : locationProviderFlags.aggregations.unique_providers_location.after_key.provider_id,
         },
       };
     } catch (err) {
@@ -1572,16 +1572,8 @@ class SearchService {
         });
       }
 
-
-      // Ensure only first items are considered
-      matchQuery.push({
-        match: {
-          is_first: true,
-        },
-      });
-
       // Add flag filter
-      if (searchRequest.flagged !== undefined) {
+      if (searchRequest.flagged) {
         matchQuery.push({
           match: {
             item_flag: searchRequest.flagged,
