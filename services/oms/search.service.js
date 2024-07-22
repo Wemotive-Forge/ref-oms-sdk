@@ -107,29 +107,52 @@ class SearchService {
   async getSellers(searchRequest = {}, targetLanguage = "en") {
     let afterKey;
     let query;
+    let matchQuery = [];
+
+      matchQuery.push({
+        match: {
+          language: targetLanguage,
+        },
+      });
+
     if (searchRequest.afterKey) {
       afterKey = {
         "context.bpp_id": searchRequest.afterKey,
       };
     }
 
-    if (searchRequest.domain) {
-      query = {
-        bool: {
-          must: [
-            {
-              match: {
-                "context.domain": searchRequest.domain,
-              },
-            },
-          ],
+    if (searchRequest.autoFlag){
+      matchQuery.push({
+        match: {
+          "auto_seller_flag": searchRequest.autoFlag,
         },
-      };
+      });
     }
+
+    if (searchRequest.manualFlag){
+      matchQuery.push({
+        match: {
+          "manual_seller_flag": searchRequest.manualFlag,
+        },
+      });
+    }
+
+    if (searchRequest.domain) {
+      matchQuery.push({
+        match: {
+          "context.domain": searchRequest.domain,
+        },
+      });
+    }
+    let query_obj = {
+      bool: {
+        must: matchQuery,
+      },
+    };
 
     const allSellers = await client.search({
       index: "items",
-      query: query,
+      query: query_obj,
       size: 0,
       aggs: {
         seller_count: {
@@ -1118,22 +1141,18 @@ class SearchService {
   async getFlag(searchRequest) {
     let source = [];
     let key;
-    let manual_flag;
     switch (searchRequest.type) {
       case "seller":
         key = "context.bpp_id";
-        manual_flag = "manual_seller_flag";
-        source.push("seller_error_tags", "seller_flag");
+        source.push("seller_error_tags", "seller_flag","manual_seller_flag", "auto_seller_flag");
         break;
       case "item":
         key = "id";
-        manual_flag = "manual_item_flag";
-        source.push("item_error_tags", "item_flag");
+        source.push("item_error_tags", "item_flag","manual_item_flag", "auto_item_flag");
         break;
       case "provider":
         key = "provider_details.id";
-        manual_flag = "manual_provider_flag";
-        source.push("provider_error_tags", "provider_flag");
+        source.push("provider_error_tags", "provider_flag","manual_provider_flag", "auto_provider_flag");
         break;
       default:
         return { error: "Type must be from ['item', 'seller', 'provider']" };
@@ -1148,6 +1167,7 @@ class SearchService {
       },
     });
 
+
     if (result.hits.hits.length === 0) {
       return null;
     }
@@ -1155,7 +1175,8 @@ class SearchService {
       return [
         {
           flag: result.hits.hits[0]._source[source[1]] || false,
-          manual_flag: result.hits.hits[0]._source["manual_seller_flag"] || false,
+          manual_flag: result.hits.hits[0]._source[source[2]]  || false,
+          auto_flag: result.hits.hits[0]._source[source[3]]  || false,
           error_tag: result.hits.hits[0]._source[source[0]] || [],
         },
       ];
@@ -1212,24 +1233,33 @@ class SearchService {
 
     let source = `ctx._source.flagged = params.flagged;`;
     let key;
+    let manualKey;
+    let errorKey;
     switch (searchRequest.type) {
       case "seller":
+        manualKey = "manual_seller_flag";
+        errorKey = "seller_error_tags";
         key = "context.bpp_id";
         source = `ctx._source.seller_flag = params.flagged; ctx._source.seller_error_tags = params.errorTag; ctx._source.manual_seller_flag = params.flagged;`;
         break;
       case "item":
+        manualKey = "manual_item_flag";
         key = "id";
+        errorKey = "item_error_tags";
         source = `ctx._source.item_flag = params.flagged; ctx._source.item_error_tags = params.errorTag; ctx._source.manual_item_flag = params.flagged;`;
         break;
       case "provider":
         key = "provider_details.id";
+        manualKey = "manual_provider_flag";
+        errorKey = "provider_error_tags";
         source = `ctx._source.provider_flag = params.flagged; ctx._source.provider_error_tags = params.errorTag; ctx._source.manual_provider_flag = params.flagged;`;
         break;
       default:
         return { error: "Type must be from ['item', 'seller', 'provider']" };
     }
 
-    const searchResults = await client.updateByQuery({
+  
+    const updateResults = await client.updateByQuery({
       index: "items",
       query: {
         term: {
@@ -1245,7 +1275,58 @@ class SearchService {
       },
     });
 
-    return searchResults;
+    if (updateResults.total === 0){
+      return { error: "No matching documents found" };
+    }
+
+    if (updateResults.updated === 0){
+      return { error: "Failed to update the documents" };
+    }
+
+
+
+    const search = await client.search({
+      index: "items",
+      _source : ["id", "local_id", "provider_details", "location_details", "bpp_details", manualKey , errorKey],
+      query: {
+        term: {
+          [key]: searchRequest.id,
+        },
+      },
+    });
+
+    const bulkBody = []
+
+    search.hits.hits.forEach(item => {
+      bulkBody.push({
+        index: {
+          _index: "manually_flagged_items",
+          _id: Date.now(), 
+        },
+      });
+
+      bulkBody.push({
+          id: item._source.id,
+          local_id: item._source.local_id,
+          created_at: new Date().toISOString(),
+          [manualKey]: searchRequest.flagged,
+          provider_details: item._source.provider_details,
+          location_details: item._source.location_details,
+          bpp_details: item._source.bpp_details,
+          [errorKey]: searchRequest.errorTag,
+      });
+    });
+
+    const result = await client.bulk({ refresh: true, body: bulkBody });
+    if (result.errors){
+      return _.flatMap(result.items, item => ({
+        _id: item.index._id,
+        status: item.index.status,
+        error: item.index.error
+      }));
+    }
+
+    return _.map(result.items, item => item.index);
   }
 
   async getOffers(searchRequest, targetLanguage = "en") {
@@ -1368,6 +1449,22 @@ class SearchService {
         });
       }
 
+      if (searchRequest.autoFlag){
+        matchQuery.push({
+          match: {
+            "auto_provider_flag": searchRequest.autoFlag,
+          },
+        });
+      }
+
+      if (searchRequest.manualFlag){
+        matchQuery.push({
+          match: {
+            "manual_provider_flag": searchRequest.manualFlag,
+          },
+        });
+      }
+
       if (searchRequest.bpp_id) {
         matchQuery.push({
           match: {
@@ -1424,6 +1521,7 @@ class SearchService {
       const locationProviderFlags = await client.search({
         index: "items",
         size:0,
+        query: query_obj,
         aggs: {
           total_providers: {
             cardinality: {
@@ -1479,6 +1577,8 @@ class SearchService {
             location_details: topHit.location_details,
             location: topHit.location_details.address.locality,
             flag: topHit.provider_flag || false,
+            manual_flag : topHit.manual_provider_flag || false,
+            auto_flag : topHit.auto_provider_flag || false
           })
 
           if (bucket["products_without_locations_id"].doc_count > 0){
@@ -1495,6 +1595,8 @@ class SearchService {
               location_details: null,
               location: null,
               flag: topHit.provider_flag || false,
+              auto_flag : topHit.auto_provider_flag || false,
+              manual_flag : topHit.manual_provider_flag || false,
             })
           }
          
@@ -1531,6 +1633,22 @@ class SearchService {
         matchQuery.push({
           match: {
             "item_details.descriptor.name": searchRequest.name,
+          },
+        });
+      }
+
+      if (searchRequest.autoFlag){
+        matchQuery.push({
+          match: {
+            "auto_item_flag": searchRequest.autoFlag,
+          },
+        });
+      }
+
+      if (searchRequest.manualFlag){
+        matchQuery.push({
+          match: {
+            "manual_item_flag": searchRequest.manualFlag,
           },
         });
       }
@@ -1691,6 +1809,8 @@ class SearchService {
             "type",
             "location_details.id",
             "provider_details.id",
+            "auto_item_flag",
+            "manual_item_flag"
           ],
         },
       });
@@ -1721,6 +1841,8 @@ class SearchService {
           error_tags: hit._source.item_error_tags || [],
           customisation: customisation,
           variant: variant,
+          auto_item_flag: hit._source.auto_item_flag,
+          manual_item_flag: hit._source.manual_item_flag,
         };
       });
 
