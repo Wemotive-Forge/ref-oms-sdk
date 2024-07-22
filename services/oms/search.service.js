@@ -213,7 +213,7 @@ class SearchService {
     const result = _.map(grouped, (group, key) => {
       return {
         bpp_id: key,
-        label: group[0].products.hits.hits[0]._source.bpp_details.name,
+        seller_name: group[0].products.hits.hits[0]._source.bpp_details.name,
         item_count: group[0].item_count.value,
         provider_count: group[0].provider_count.value,
         flagged_items_count: group[0].item_flagged_count.doc_count,
@@ -446,11 +446,7 @@ class SearchService {
     }
   }
 
-  async getItemDetails(
-    searchRequest = {},
-    targetLanguage = "en",
-    errorTags = []
-  ) {
+  async getItemDetails(searchRequest = {}, targetLanguage = "en") {
     try {
       // providerIds=ondc-mock-server-dev.thewitslab.com_ONDC:RET10_ondc-mock-server-dev.thewitslab.com
       let matchQuery = [];
@@ -480,30 +476,9 @@ class SearchService {
       });
 
       let item_details = null;
-      let indexName = null; // Initialize a variable to store the index name
       if (queryResults.hits.hits.length > 0) {
         item_details = queryResults.hits.hits[0]._source; // Return the source of the first hit
-        indexName = queryResults.hits.hits[0]._index; // Get the index name from the first hit
-        console.log("Index Name", indexName);
         item_details.customisation_items = [];
-        item_details.errorTags = errorTags; // Add errorTags from params
-
-        // Check for ImageMissing
-        if (
-          !item_details.item_details.descriptor.images ||
-          item_details.item_details.descriptor.images.length === 0
-        ) {
-          if (!errorTags.includes("ImageMissing")) {
-            errorTags.push("ImageMissing");
-          }
-        }
-
-        //Check for NameMissing
-        if (!item_details.item_details.descriptor.name) {
-          if (!errorTags.includes("NameMissing")) {
-            errorTags.push("NameMissing");
-          }
-        }
 
         // add variant details if available
         if (item_details.item_details.parent_item_id) {
@@ -537,6 +512,13 @@ class SearchService {
             },
           });
 
+          matchQuery.push(
+            {
+              match: {
+                language: targetLanguage,
+              },
+            })
+
           let query_obj = {
             bool: {
               must: matchQuery,
@@ -545,10 +527,11 @@ class SearchService {
 
           let queryResults = await client.search({
             query: query_obj,
+            size:100
           });
 
           item_details.related_items = queryResults.hits.hits.map(
-            (hit) => hit._source
+            (hit) => hit._source,
           );
         } else if (item_details.customisation_groups.length > 0) {
           //fetch all customisation items - customisation_group_id
@@ -570,6 +553,14 @@ class SearchService {
               type: "customization",
             },
           });
+
+          customisationQuery.push(
+            {
+              match: {
+                language: targetLanguage,
+              },
+            });
+            
           // Create the query object
           let query_obj = {
             bool: {
@@ -579,46 +570,17 @@ class SearchService {
 
           let queryResults = await client.search({
             query: query_obj,
+            size: 100
           });
 
           console.log(queryResults);
           item_details.customisation_items = queryResults.hits.hits.map(
-            (hit) => hit._source
+            (hit) => hit._source,
           );
         }
-        // Save the item details back to Elasticsearch with errorTags
-        let savedRes = await client.index({
-          index: indexName, // Use the dynamically retrieved index name
-          id: item_details.id,
-          body: item_details,
-        });
-
-        console.log("SAVED RESPONSE", savedRes);
-
-        // Retrieve all items where errorTags include 'ImageMissing', 'NameMissing'
-        let errorTagQuery = {
-          bool: {
-            must: [
-              {
-                terms: {
-                  errorTags: ["ImageMissing", "NameMissing"],
-                },
-              },
-            ],
-          },
-        };
-
-        let errorTagResults = await client.search({
-          index: indexName, // Use the dynamically retrieved index name
-          query: errorTagQuery,
-        });
-
-        let itemsWithImageMissing = errorTagResults.hits.hits.map(
-          (hit) => hit._source
-        );
-        console.log("Items With Image Missing:", itemsWithImageMissing);
       }
 
+      item_details.locations = [item_details.location_details]
       //            console.log("itemdetails--->",item_details)
       return item_details;
 
@@ -1438,15 +1400,8 @@ class SearchService {
         });
       }
 
-      // Add a filter for variants
-      matchQuery.push({
-        match: {
-          is_first: true,
-        },
-      });
-
       // Add flag filter
-      if (searchRequest.flag !== undefined) {
+      if (searchRequest.flag) {
         matchQuery.push({
           match: {
             provider_flag: searchRequest.flag,
@@ -1463,88 +1418,96 @@ class SearchService {
 
       // Calculate pagination parameters
       let size = parseInt(searchRequest.limit);
-      // let page = parseInt(searchRequest.pageNumber);
-      // const from = (page - 1) * size;
+
 
       // Perform the search with pagination and aggregations
-      let queryResults = await client.search({
+      const locationProviderFlags = await client.search({
         index: "items",
-        body: {
-          query: query_obj,
-          //from: from, // Fetch all results initially, pagination will be handled manually
-          size: size,
-          aggs: {
-            unique_provider_location: {
-              composite: {
-                size: size, // Number of results to return per page
-                sources: [
-                  { provider_id: { terms: { field: "provider_details.id" } } },
-                  { location_id: { terms: { field: "location_details.id" } } },
-                ],
-                after: searchRequest.afterKey
-                  ? {
-                      provider_id: searchRequest.afterKey.provider_id,
-                      location_id: searchRequest.afterKey.location_id,
-                    }
-                  : undefined,
-              },
-              aggs: {
-                item_count: {
-                  cardinality: {
-                    field: "item_details.id",
-                  },
-                }, // Count items for each provider-location combination
-                flagged_count: { filter: { term: { provider_flag: true } } },
-                top_hits: { top_hits: { size: 1 } }, // Get top hit for additional details
-              },
-            },
+        size:0,
+        aggs: {
+          total_providers: {
+            cardinality: {
+              field : "provider_details.id"
+            }
           },
-        },
+          unique_providers_location: {
+            composite: {
+              sources:  [
+                { provider_id: { terms: { field: "provider_details.id" } } },
+              ],
+              size: size,
+              after: searchRequest.afterKey
+                  ? { provider_id: searchRequest.afterKey }
+                  : undefined,
+            },
+            
+            aggs: {
+              "locations":{
+                terms: {field: "location_details.id"},
+                aggs: {
+                  flagged_count: { filter: { term: { item_flag: true } } },
+                  top_hits: { top_hits: { size: 1 } }, // Get top hit for additional details
+                }
+              },
+              "products_without_locations_id": {
+                "missing": { "field": "location_details.id" },
+                aggs: {
+                  flagged_count: { filter: { term: { item_flag: true } } },
+                  top_hits: { top_hits: { size: 1 } }, // Get top hit for additional details
+                }
+              },
+
+            },
+          }
+        }
       });
 
-      //return queryResults
+      const response = [];
 
-      // Extract the provider data and aggregations
-      let providers = queryResults.aggregations.unique_provider_location.buckets
-        .flatMap((bucket) => {
-          const itemCount = bucket.item_count.value;
-          const flaggedItemCount = bucket.flagged_count.doc_count;
-          const topHit = bucket.top_hits.hits.hits[0]?._source; // Safely accessing top_hits
-
-          console.log("TOP HIT", topHit);
-
-          if (!topHit) {
-            return null; // Skip if topHit is undefined
-          }
-          console.log("BUCKET", bucket);
-          const locationDetails = topHit.location_details;
-          const locationId = bucket.key.location_id;
-
-          return {
+      locationProviderFlags.aggregations.unique_providers_location.buckets.forEach(bucket => {
+          bucket["locations"].buckets.forEach((locationBucket)=>{
+          const topHit = locationBucket.top_hits.hits.hits[0]._source;
+          response.push ({
             provider_details: topHit.provider_details,
             name: topHit.provider_details.descriptor.name, // BPP ID as name
             city: topHit.context.city,
+            seller_name:topHit.bpp_details?.name??"",
             seller_app: topHit.context.bpp_id, // Seller app
-            item_count: itemCount, // Number of items
-            flagged_item_count: flaggedItemCount,
-            location_id: locationId,
-            location_details: locationDetails,
+            item_count: locationBucket.doc_count, // Number of items
+            flagged_item_count: locationBucket.flagged_count.doc_count,
+            location_id: locationBucket.key,
+            location_details: topHit.location_details,
             location: topHit.location_details.address.locality,
-            provider_flag: topHit.provider_flag === true ? true : false,
-          };
+            flag: topHit.provider_flag || false,
+          })
+
+          if (bucket["products_without_locations_id"].doc_count > 0){
+            const topHit = bucket.products_without_locations_id.top_hits.hits.hits[0]._source;
+            response.push ({
+              provider_details: topHit.provider_details,
+              name: topHit.provider_details.descriptor.name, // BPP ID as name
+              city: topHit.context.city,
+              seller_name:topHit.bpp_details?.name??"",
+              seller_app: topHit.context.bpp_id, // Seller app
+              item_count: bucket.products_without_locations_id.doc_count, // Number of items
+              flagged_item_count: bucket.products_without_locations_id.flagged_count.doc_count ,
+              location_id: null,
+              location_details: null,
+              location: null,
+              flag: topHit.provider_flag || false,
+            })
+          }
+         
         })
-        .filter((provider) => provider !== null); // Filter out null values
+      });
 
-      let afterKey =
-        queryResults.aggregations.unique_provider_location.after_key;
 
-      // Return the total count and the sources
       return {
         response: {
-          count: providers.length,
-          data: providers,
-          pages: Math.ceil(providers.length / size), // Calculate the total number of pages
-          afterKey,
+          count: locationProviderFlags.aggregations.total_providers.value,
+          data: response,
+          pages: Math.ceil(locationProviderFlags.aggregations.total_providers.value / size), 
+          afterKey : locationProviderFlags.aggregations.unique_providers_location.after_key.provider_id,
         },
       };
     } catch (err) {
@@ -1572,18 +1535,18 @@ class SearchService {
         });
       }
 
-      if (searchRequest.providerIds) {
+      if (searchRequest.provider) {
         matchQuery.push({
           match: {
-            "provider_details.id": searchRequest.providerIds,
+            "provider_details.id": searchRequest.provider,
           },
         });
       }
 
-      if (searchRequest.categoryIds) {
+      if (searchRequest.category) {
         matchQuery.push({
           match: {
-            "item_details.category_id": searchRequest.categoryIds,
+            "item_details.category_id": searchRequest.category,
           },
         });
       }
@@ -1620,18 +1583,21 @@ class SearchService {
         });
       }
 
-      // Ensure only first items are considered
-      matchQuery.push({
-        match: {
-          is_first: true,
-        },
-      });
+      
 
-      // Add flag filter
-      if (searchRequest.flag !== undefined) {
+      if (searchRequest.bpp_id) {
         matchQuery.push({
           match: {
-            item_flag: searchRequest.flag,
+            "context.bpp_id": searchRequest.bpp_id,
+          },
+        });
+      }
+
+      // Add flag filter
+      if (searchRequest.flagged) {
+        matchQuery.push({
+          match: {
+            item_flag: searchRequest.flagged,
           },
         });
       }
