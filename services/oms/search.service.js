@@ -168,6 +168,20 @@ class SearchService {
                 },
               },
             },
+            manual_seller_flag_count: {
+              filter: {
+                term: {
+                  manual_seller_flag: true,
+                },
+              },
+            },
+            auto_seller_flag_count: {
+              filter: {
+                term: {
+                  auto_seller_flag: true,
+                },
+              },
+            },
             provider_flagged_count: {
               filter: {
                 term: {
@@ -205,6 +219,8 @@ class SearchService {
         flagged_items_count: group[0].item_flagged_count.doc_count,
         flagged_providers_count: group[0].provider_flagged_count.doc_count,
         flag: group[0].seller_flag_count.doc_count > 0,
+        manual_flag: group[0].manual_seller_flag_count.doc_count > 0,
+        auto_flag: group[0].auto_seller_flag_count.doc_count > 0,
       };
     });
 
@@ -1140,17 +1156,21 @@ class SearchService {
   async getFlag(searchRequest) {
     let source = [];
     let key;
+    let manual_flag;
     switch (searchRequest.type) {
       case "seller":
         key = "context.bpp_id";
+        manual_flag = "manual_seller_flag";
         source.push("seller_error_tags", "seller_flag");
         break;
       case "item":
         key = "id";
+        manual_flag = "manual_item_flag";
         source.push("item_error_tags", "item_flag");
         break;
       case "provider":
         key = "provider_details.id";
+        manual_flag = "manual_provider_flag";
         source.push("provider_error_tags", "provider_flag");
         break;
       default:
@@ -1173,6 +1193,7 @@ class SearchService {
       return [
         {
           flag: result.hits.hits[0]._source[source[1]] || false,
+          manual_flag: result.hits.hits[0]._source["manual_seller_flag"] || false,
           error_tag: result.hits.hits[0]._source[source[0]] || [],
         },
       ];
@@ -1232,15 +1253,15 @@ class SearchService {
     switch (searchRequest.type) {
       case "seller":
         key = "context.bpp_id";
-        source = `ctx._source.seller_flag = params.flagged; ctx._source.seller_error_tags = params.errorTag;`;
+        source = `ctx._source.seller_flag = params.flagged; ctx._source.seller_error_tags = params.errorTag; ctx._source.manual_seller_flag = params.flagged;`;
         break;
       case "item":
         key = "id";
-        source = `ctx._source.item_flag = params.flagged; ctx._source.item_error_tags = params.errorTag;`;
+        source = `ctx._source.item_flag = params.flagged; ctx._source.item_error_tags = params.errorTag; ctx._source.manual_item_flag = params.flagged;`;
         break;
       case "provider":
         key = "provider_details.id";
-        source = `ctx._source.provider_flag = params.flagged; ctx._source.provider_error_tags = params.errorTag;`;
+        source = `ctx._source.provider_flag = params.flagged; ctx._source.provider_error_tags = params.errorTag; ctx._source.manual_provider_flag = params.flagged;`;
         break;
       default:
         return { error: "Type must be from ['item', 'seller', 'provider']" };
@@ -1711,9 +1732,11 @@ class SearchService {
       // Extract data from Elasticsearch response
       let items = queryResults.hits.hits.map((hit) => {
         const itemDetails = hit._source.item_details;
-        const customisation = itemDetails.tags?.some(tag => tag.code === 'custom_group') || false;
+        const customisation =
+          itemDetails.tags?.some((tag) => tag.code === "custom_group") || false;
         const variant = itemDetails.parent_item_id ? true : false;
-        const type = itemDetails.type === 'customisation' ? 'customisation' : 'item';
+        const type =
+          itemDetails.type === "customisation" ? "customisation" : "item";
 
         return {
           item_details: itemDetails,
@@ -1731,7 +1754,7 @@ class SearchService {
           flag: hit._source.item_flag || false,
           error_tags: hit._source.item_error_tags || [],
           customisation: customisation,
-          variant: variant
+          variant: variant,
         };
       });
 
@@ -1865,10 +1888,10 @@ class SearchService {
     };
   }
 
-  async getProviderIds (searchRequest = {}){
+  async getProviderIds(searchRequest = {}) {
     try {
       let matchQuery = [];
-  
+
       // Add bpp_id filter if it exists
       if (searchRequest.bpp_id) {
         matchQuery.push({
@@ -1877,14 +1900,14 @@ class SearchService {
           },
         });
       }
-  
+
       // Construct the base query object
       const baseQuery = {
         bool: {
           must: matchQuery,
         },
       };
-  
+
       // Step 1: Count the unique providers based on bpp_id
       const providerCount = await client.search({
         index: "items",
@@ -1894,16 +1917,16 @@ class SearchService {
           aggs: {
             provider_count: {
               cardinality: {
-                field: 'provider_details.id',
+                field: "provider_details.id",
               },
             },
           },
         },
       });
-  
+
       // Step 2: Retrieve unique provider IDs and names
       const uniqueProviders = await client.search({
-        index: 'items',
+        index: "items",
         size: 0,
         body: {
           query: matchQuery.length ? baseQuery : undefined, // Only add the query if there are conditions
@@ -1918,7 +1941,10 @@ class SearchService {
               aggs: {
                 top_provider_hits: {
                   top_hits: {
-                    _source: ["provider_details.descriptor.name", "provider_details.id"],
+                    _source: [
+                      "provider_details.descriptor.name",
+                      "provider_details.id",
+                    ],
                     size: 1,
                   },
                 },
@@ -1927,16 +1953,18 @@ class SearchService {
           },
         },
       });
-  
+
       // Extract the provider data from aggregations
-      const providers = uniqueProviders.aggregations.unique.buckets.map((bucket) => {
-        const topHit = bucket.top_provider_hits.hits.hits[0]._source;
-        return {
-          name: topHit.provider_details.descriptor.name,
-          id: topHit.provider_details.id,
-        };
-      });
-  
+      const providers = uniqueProviders.aggregations.unique.buckets.map(
+        (bucket) => {
+          const topHit = bucket.top_provider_hits.hits.hits[0]._source;
+          return {
+            name: topHit.provider_details.descriptor.name,
+            id: topHit.provider_details.id,
+          };
+        }
+      );
+
       // Return the provider data wrapped in a "providers" key
       return {
         providers,
@@ -1946,10 +1974,10 @@ class SearchService {
     }
   }
 
-  async getLocationIds(searchRequest = {}){
+  async getLocationIds(searchRequest = {}) {
     try {
       let matchQuery = [];
-  
+
       // Add providerId filter if it exists
       if (searchRequest.providerId) {
         matchQuery.push({
@@ -1958,14 +1986,14 @@ class SearchService {
           },
         });
       }
-  
+
       // Construct the base query object
       const baseQuery = {
         bool: {
           must: matchQuery,
         },
       };
-  
+
       // Step 1: Count the unique locations based on providerId
       const locationCount = await client.search({
         index: "items",
@@ -1975,16 +2003,16 @@ class SearchService {
           aggs: {
             location_count: {
               cardinality: {
-                field: 'location_details.id',
+                field: "location_details.id",
               },
             },
           },
         },
       });
-  
+
       // Step 2: Retrieve unique location IDs and names
       const uniqueLocations = await client.search({
-        index: 'items',
+        index: "items",
         size: 0,
         body: {
           query: matchQuery.length ? baseQuery : undefined, // Only add the query if there are conditions
@@ -1999,7 +2027,11 @@ class SearchService {
               aggs: {
                 top_location_hits: {
                   top_hits: {
-                    _source: ["location_details.address.city", "location_details.address.area_code", "location_details.id"],
+                    _source: [
+                      "location_details.address.city",
+                      "location_details.address.area_code",
+                      "location_details.id",
+                    ],
                     size: 1,
                   },
                 },
@@ -2008,20 +2040,22 @@ class SearchService {
           },
         },
       });
-  
+
       // Extract the location data from aggregations
-      const locations = uniqueLocations.aggregations.unique.buckets.map((bucket) => {
-        const topHit = bucket.top_location_hits.hits.hits[0]._source;
-        const cityName = topHit.location_details.address.city || "";
-        const areaCode = topHit.location_details.address.area_code || "";
-        const name = `${cityName}_${areaCode}`;
-  
-        return {
-          name,
-          id: topHit.location_details.id,
-        };
-      });
-  
+      const locations = uniqueLocations.aggregations.unique.buckets.map(
+        (bucket) => {
+          const topHit = bucket.top_location_hits.hits.hits[0]._source;
+          const cityName = topHit.location_details.address.city || "";
+          const areaCode = topHit.location_details.address.area_code || "";
+          const name = `${cityName}_${areaCode}`;
+
+          return {
+            name,
+            id: topHit.location_details.id,
+          };
+        }
+      );
+
       // Return the location data wrapped in a "locations" key
       return {
         locations,
