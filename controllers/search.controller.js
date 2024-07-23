@@ -18,14 +18,14 @@ class SearchController {
     console.log({ searchRequest });
     const headers = req.headers;
 
-    let targetLanguage = headers["targetlanguage"];
+    let targetlanguage = headers["targetlanguage"];
 
-    // if(targetLanguage==='en' || !targetLanguage) //default catalog is in english hence not considering this for translation
+    // if(targetlanguage==='en' || !targetlanguage) //default catalog is in english hence not considering this for translation
     // {
-    //     targetLanguage = undefined
+    //     targetlanguage = undefined
     // }
     searchService
-      .search(searchRequest, targetLanguage)
+      .search(searchRequest, targetlanguage)
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");
@@ -42,14 +42,14 @@ class SearchController {
     console.log({ searchRequest });
     const headers = req.headers;
 
-    let targetLanguage = headers["targetlanguage"];
+    let targetlanguage = headers["targetlanguage"];
 
-    // if(targetLanguage==='en' || !targetLanguage) //default catalog is in english hence not considering this for translation
+    // if(targetlanguage==='en' || !targetlanguage) //default catalog is in english hence not considering this for translation
     // {
-    //     targetLanguage = undefined
+    //     targetlanguage = undefined
     // }
     searchService
-      .globalSearchItems(searchRequest, targetLanguage)
+      .globalSearchItems(searchRequest, targetlanguage)
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");
@@ -66,14 +66,14 @@ class SearchController {
     console.log({ searchRequest });
     const headers = req.headers;
 
-    let targetLanguage = headers["targetlanguage"];
+    let targetlanguage = headers["targetlanguage"];
 
-    if (targetLanguage === "en" || !targetLanguage) {
+    if (targetlanguage === "en" || !targetlanguage) {
       //default catalog is in english hence not considering this for translation
-      targetLanguage = undefined;
+      targetlanguage = undefined;
     }
     searchService
-      .getProvideDetails(searchRequest, targetLanguage)
+      .getProvideDetails(searchRequest, targetlanguage)
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");
@@ -90,10 +90,10 @@ class SearchController {
     console.log({ searchRequest });
     const headers = req.headers;
 
-    let targetLanguage = headers["targetlanguage"];
+    let targetlanguage = headers["targetlanguage"];
 
     searchService
-      .getLocationDetails(searchRequest, targetLanguage)
+      .getLocationDetails(searchRequest, targetlanguage)
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");
@@ -110,14 +110,14 @@ class SearchController {
     console.log({ searchRequest });
     const headers = req.headers;
 
-    let targetLanguage = headers["targetlanguage"];
+    let targetlanguage = headers["targetlanguage"];
 
-    if (targetLanguage === "en" || !targetLanguage) {
+    if (targetlanguage === "en" || !targetlanguage) {
       //default catalog is in english hence not considering this for translation
-      targetLanguage = undefined;
+      targetlanguage = undefined;
     }
     searchService
-      .getItemDetails(searchRequest, targetLanguage)
+      .getItemDetails(searchRequest, targetlanguage)
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");
@@ -158,10 +158,10 @@ class SearchController {
     console.log({ searchRequest });
     const headers = req.headers;
 
-    let targetLanguage = headers["targetlanguage"];
+    let targetlanguage = headers["targetlanguage"];
 
     searchService
-      .getLocations(searchRequest, targetLanguage)
+      .getLocations(searchRequest, targetlanguage)
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");
@@ -178,10 +178,10 @@ class SearchController {
     console.log({ searchRequest });
     const headers = req.headers;
 
-    let targetLanguage = headers["targetlanguage"];
+    let targetlanguage = headers["targetlanguage"];
 
     searchService
-      .getGlobalProviders(searchRequest, targetLanguage)
+      .getGlobalProviders(searchRequest, targetlanguage)
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");
@@ -227,14 +227,14 @@ class SearchController {
     const searchRequest = req.query;
     const headers = req.headers;
 
-    let targetLanguage = headers["targetlanguage"];
+    let targetlanguage = headers["targetlanguage"];
 
-    if (targetLanguage === "en" || !targetLanguage) {
+    if (targetlanguage === "en" || !targetlanguage) {
       //default catalog is in english hence not considering this for translation
-      targetLanguage = undefined;
+      targetlanguage = undefined;
     }
     searchService
-      .getProviders(searchRequest, targetLanguage)
+      .getProviders(searchRequest, targetlanguage)
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");
@@ -275,8 +275,13 @@ class SearchController {
       "Got Seller Details's Request =========>",
       JSON.stringify(searchRequest)
     );
+
+    const headers = req.headers;
+
+    let targetlanguage = headers["targetlanguage"];
+
     searchService
-      .getSellers(searchRequest)
+      .getSellers(searchRequest,targetlanguage)
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");
@@ -288,8 +293,12 @@ class SearchController {
   }
 
   getSellerIds(req, res, next) {
+    const headers = req.headers;
+
+    let targetlanguage = headers["targetlanguage"];
+
     searchService
-      .getSellerIds()
+      .getSellerIds(targetlanguage)
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");
@@ -304,8 +313,12 @@ class SearchController {
     const searchRequest = req.query;
     console.log("Got GET Flag Request =========>", JSON.stringify(searchRequest));
 
+    const headers = req.headers;
+
+    let targetlanguage = headers["targetlanguage"];
+
     searchService
-      .getFlag(searchRequest)
+      .getFlag(searchRequest, targetlanguage)
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");
@@ -317,8 +330,12 @@ class SearchController {
   }
 
   getUniqueCity (req, res ,next){
+    const headers = req.headers;
+
+    let targetlanguage = headers["targetlanguage"];
+
     searchService
-      .getUniqueCity()
+      .getUniqueCity(targetlanguage)
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");
@@ -332,9 +349,12 @@ class SearchController {
   updateFlag(req, res, next) {
     const searchRequest = req.body;
     console.log("Got Flag Request =========>", JSON.stringify(searchRequest));
+    const headers = req.headers;
+
+    let targetlanguage = headers["targetlanguage"];
 
     searchService
-      .updateFlag(searchRequest)
+      .updateFlag(searchRequest, targetlanguage)
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");
@@ -368,10 +388,10 @@ class SearchController {
     console.log({ searchRequest });
     const headers = req.headers;
 
-    let targetLanguage = headers["targetlanguage"];
+    let targetlanguage = headers["targetlanguage"];
 
     searchService
-      .listProviders(searchRequest, targetLanguage)
+      .listProviders(searchRequest, targetlanguage)
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");
@@ -385,10 +405,10 @@ class SearchController {
   displayItems(req, res, next) {
     const searchRequest = req.query;
     const headers = req.headers;
-    let targetLanguage = headers["targetlanguage"] || "en"; // Default to 'en' if not provided
+    let targetlanguage = headers["targetlanguage"] || "en"; // Default to 'en' if not provided
 
     searchService
-      .displayItems(searchRequest, targetLanguage)
+      .displayItems(searchRequest, targetlanguage)
       .then((response) => {
         if (!response) {
           throw new NoRecordFoundError("No items found");
@@ -403,10 +423,14 @@ class SearchController {
 
   getUniqueCategory (req, res ,next){
     const searchRequest = req.query;
-    console.log("Got GET City Request =========>", JSON.stringify(searchRequest));
+    console.log("Got GET Unique Categories Request =========>", JSON.stringify(searchRequest));
+
+    const headers = req.headers;
+
+    let targetlanguage = headers["targetlanguage"];
 
     searchService
-      .getUniqueCategories(searchRequest)
+      .getUniqueCategories(searchRequest,targetlanguage)
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");
@@ -421,9 +445,13 @@ class SearchController {
     const searchRequest = req.query;
   
     console.log({ searchRequest });
+
+    const headers = req.headers;
+
+    let targetlanguage = headers["targetlanguage"];
   
     searchService
-      .getProviderIds(searchRequest)
+      .getProviderIds(searchRequest, targetlanguage)
       .then((response) => {
         if (!response || response === null) {
           throw new NoRecordFoundError("No result found");
@@ -441,8 +469,12 @@ class SearchController {
     
       console.log({ searchRequest });
     
+      const headers = req.headers;
+
+      let targetlanguage = headers["targetlanguage"];
+
       searchService
-        .getLocationIds(searchRequest)
+        .getLocationIds(searchRequest,targetlanguage)
         .then((response) => {
           if (!response || response.locations.length === 0) {
             throw new NoRecordFoundError("No result found");
