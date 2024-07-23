@@ -1953,7 +1953,7 @@ class SearchService {
     return sellers;
   }
 
-  async getUniqueCategories(searchRequest, targetLanguage) {
+  async getUniqueCategories(searchRequest, targetLanguage = "en") {
     let matchQuery = [];
 
     if (searchRequest.domain) {
