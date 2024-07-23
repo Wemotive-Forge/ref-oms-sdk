@@ -1882,8 +1882,8 @@ class SearchService {
           error_tags: hit._source.item_error_tags || [],
           customisation: customisation,
           variant: variant,
-          auto_item_flag: hit._source.auto_item_flag || false,
-          manual_item_flag: hit._source.manual_item_flag || false,
+          auto_flag: hit._source.auto_item_flag || false,
+          manual_flag: hit._source.manual_item_flag || false,
         };
       });
 
