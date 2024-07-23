@@ -1190,7 +1190,7 @@ class SearchService {
     });
   }
 
-  async getUniqueCity() {
+  async getUniqueCity(targetLanguage = "en") {
     const totalCity = await client.search({
       index: "items",
       size: 0,
@@ -1226,10 +1226,20 @@ class SearchService {
     return cityNames;
   }
 
-  async updateFlag(searchRequest) {
+  async updateFlag(searchRequest, targetLanguage = "en") {
     if (!_.isBoolean(searchRequest.flagged)) {
       return { error: "Flag can only be boolean type" };
     }
+
+    let matchQuery = [];
+
+
+    matchQuery.push({
+      match: {
+        language: targetLanguage,
+      },
+    });
+    
 
     let source = `ctx._source.flagged = params.flagged;`;
     let key;
@@ -1258,14 +1268,21 @@ class SearchService {
         return { error: "Type must be from ['item', 'seller', 'provider']" };
     }
 
-  
+    matchQuery.push({
+      match: {
+        [key]: searchRequest.id,
+      },
+    });
+
+    const query_obj = {
+      bool: {
+        must: matchQuery,
+      }
+    }
+
     const updateResults = await client.updateByQuery({
       index: "items",
-      query: {
-        term: {
-          [key]: searchRequest.id,
-        },
-      },
+      query: query_obj,
       script: {
         source,
         params: {
@@ -1591,9 +1608,9 @@ class SearchService {
               seller_app: topHit.context.bpp_id, // Seller app
               item_count: bucket.products_without_locations_id.doc_count, // Number of items
               flagged_item_count: bucket.products_without_locations_id.flagged_count.doc_count ,
-              location_id: null,
-              location_details: null,
-              location: null,
+              location_id: "N/A",
+              location_details: "N/A",
+              location: "N/A",
               flag: topHit.provider_flag || false,
               auto_flag : topHit.auto_provider_flag || false,
               manual_flag : topHit.manual_provider_flag || false,
@@ -1841,8 +1858,8 @@ class SearchService {
           error_tags: hit._source.item_error_tags || [],
           customisation: customisation,
           variant: variant,
-          auto_item_flag: hit._source.auto_item_flag,
-          manual_item_flag: hit._source.manual_item_flag,
+          auto_item_flag: hit._source.auto_item_flag || false,
+          manual_item_flag: hit._source.manual_item_flag || false,
         };
       });
 

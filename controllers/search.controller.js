@@ -318,7 +318,7 @@ class SearchController {
 
   getUniqueCity (req, res ,next){
     searchService
-      .getUniqueCity()
+      .getUniqueCity(req.query.targetLanguage)
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");
@@ -334,7 +334,7 @@ class SearchController {
     console.log("Got Flag Request =========>", JSON.stringify(searchRequest));
 
     searchService
-      .updateFlag(searchRequest)
+      .updateFlag(searchRequest, searchRequest.targetLanguage)
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");
