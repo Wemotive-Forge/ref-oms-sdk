@@ -106,7 +106,6 @@ class SearchService {
 
   async getSellers(searchRequest = {}, targetLanguage = "en") {
     let afterKey;
-    let query;
     let matchQuery = [];
 
       matchQuery.push({
@@ -150,6 +149,7 @@ class SearchService {
       },
     };
 
+    
     const allSellers = await client.search({
       index: "items",
       query: query_obj,
@@ -230,6 +230,9 @@ class SearchService {
     });
 
     const { buckets } = allSellers.aggregations.unique;
+
+    if (buckets.length === 0)
+      return
 
     const grouped = _.groupBy(buckets, (item) => item.key["context.bpp_id"]);
 
@@ -471,7 +474,6 @@ class SearchService {
 
   async getItemDetails(searchRequest = {}, targetLanguage = "en") {
     try {
-      // providerIds=ondc-mock-server-dev.thewitslab.com_ONDC:RET10_ondc-mock-server-dev.thewitslab.com
       let matchQuery = [];
 
       matchQuery.push({
@@ -1003,7 +1005,7 @@ class SearchService {
       console.log("searchRequest", searchRequest);
       let query_obj = {
         bool: {
-          // Add your actual query conditions here
+          
         },
       };
 
@@ -1138,7 +1140,7 @@ class SearchService {
     }
   }
 
-  async getFlag(searchRequest) {
+  async getFlag(searchRequest,  targetLanguage = "en") {
     let source = [];
     let key;
     switch (searchRequest.type) {
@@ -1157,14 +1159,30 @@ class SearchService {
       default:
         return { error: "Type must be from ['item', 'seller', 'provider']" };
     }
+    let matchQuery = [];
+
+    matchQuery.push({
+      match: {
+        language: targetLanguage,
+      },
+    });
+
+    matchQuery.push({
+      match: {
+        [key]: searchRequest.id,
+      },
+    });
+
+    let query_obj = {
+      bool: {
+        must: matchQuery,
+      },
+    };
+
     const result = await client.search({
       index: "items",
       _source: source,
-      query: {
-        term: {
-          [key]: searchRequest.id,
-        },
-      },
+      query: query_obj,
     });
 
 
@@ -1191,9 +1209,11 @@ class SearchService {
   }
 
   async getUniqueCity(targetLanguage = "en") {
+    
     const totalCity = await client.search({
       index: "items",
       size: 0,
+      query: { bool: { must: [{ match: { language : targetLanguage }}] } },
       aggs: {
         cityCount: {
           cardinality: {
@@ -1202,6 +1222,9 @@ class SearchService {
         },
       },
     });
+
+    if (totalCity.aggregations.cityCount.value === 0)
+      return 
 
     const getCities = await client.search({
       index: "items",
@@ -1305,11 +1328,7 @@ class SearchService {
     const search = await client.search({
       index: "items",
       _source : ["id", "local_id", "provider_details", "location_details", "bpp_details", manualKey , errorKey],
-      query: {
-        term: {
-          [key]: searchRequest.id,
-        },
-      },
+      query: query_obj,
     });
 
     const bulkBody = []
@@ -1576,6 +1595,11 @@ class SearchService {
           }
         }
       });
+
+      console.log(JSON.stringify(locationProviderFlags))
+
+      if (locationProviderFlags.aggregations.unique_providers_location.buckets.length === 0)
+        return
 
       const response = [];
 
@@ -1879,9 +1903,10 @@ class SearchService {
     }
   }
 
-  async getSellerIds() {
+  async getSellerIds(targetLanguage = "en") {
     const sellerCount = await client.search({
       index: "items",
+      query: { bool: { must: [{ match: { language : targetLanguage }}] } },
       size: 0,
       aggs: {
         seller_count: {
@@ -1892,8 +1917,13 @@ class SearchService {
       },
     });
 
+    if (sellerCount.aggregations.seller_count.value === 0){
+      return [];
+    }
+
     const allSellers = await client.search({
       size: 0,
+      query:  { bool: { must: [{ match: { language : targetLanguage }}] } },
       aggs: {
         unique_sellers: {
           terms: {
@@ -1923,28 +1953,28 @@ class SearchService {
     return sellers;
   }
 
-  async getUniqueCategories(searchRequest) {
+  async getUniqueCategories(searchRequest, targetLanguage) {
     let matchQuery = [];
+
+    if (searchRequest.domain) {
+      matchQuery.push({
+        match: {
+          "context.domain": searchRequest.domain,
+        },
+      });
+    }
+
+    matchQuery.push({
+      match: {
+        language: targetLanguage,
+      },
+    });
 
     let query_obj = {
       bool: {
         must: matchQuery,
       },
     };
-
-    if (searchRequest.domain) {
-      query_obj = {
-        bool: {
-          must: [
-            {
-              match: {
-                "context.domain": searchRequest.domain,
-              },
-            },
-          ],
-        },
-      };
-    }
 
     const totalCategories = await client.search({
       index: "items",
@@ -1993,19 +2023,24 @@ class SearchService {
     };
   }
 
-  async getProviderIds(searchRequest = {}) {
+  async getProviderIds(searchRequest = {}, targetLanguage = "en") {
     try {
       let matchQuery = [];
 
-      // Add bpp_id filter if it exists
       if (searchRequest.bpp_id) {
         matchQuery.push({
           match: {
-            "context.bpp_id": searchRequest.bpp_id,
+            "context.bpp_id": searchRequest.bpp_id
           },
         });
       }
 
+      matchQuery.push({
+        match: {
+          language: targetLanguage,
+        },
+      });
+      
       // Construct the base query object
       const baseQuery = {
         bool: {
@@ -2017,49 +2052,51 @@ class SearchService {
       const providerCount = await client.search({
         index: "items",
         size: 0,
-        body: {
-          query: matchQuery.length ? baseQuery : undefined, // Only add the query if there are conditions
-          aggs: {
-            provider_count: {
-              cardinality: {
-                field: "provider_details.id",
-              },
+        query: baseQuery ,   
+        aggs: {
+          provider_count: {
+            cardinality: {
+              field: "provider_details.id",
             },
           },
         },
       });
 
-      // Step 2: Retrieve unique provider IDs and names
+      if (providerCount.aggregations.provider_count.value === 0)
+        return 
+
+
       const uniqueProviders = await client.search({
         index: "items",
-        size: 0,
-        body: {
-          query: matchQuery.length ? baseQuery : undefined, // Only add the query if there are conditions
-          aggs: {
-            unique: {
-              composite: {
-                size: providerCount.aggregations.provider_count.value,
-                sources: [
-                  { provider_id: { terms: { field: "provider_details.id" } } },
-                ],
-              },
-              aggs: {
-                top_provider_hits: {
-                  top_hits: {
-                    _source: [
-                      "provider_details.descriptor.name",
-                      "provider_details.id",
-                    ],
-                    size: 1,
-                  },
+        query:baseQuery,
+        size: 0,        
+        aggs: {
+          unique: {
+            composite: {
+              size: providerCount.aggregations.provider_count.value,
+              sources: [
+                { provider_id: { terms: { field: "provider_details.id" } } },
+              ],
+            },
+            aggs: {
+              top_provider_hits: {
+                top_hits: {
+                  _source: [
+                    "provider_details.descriptor.name",
+                    "provider_details.id",
+                  ],
+                  size: 1,
                 },
               },
             },
           },
         },
+
       });
 
-      // Extract the provider data from aggregations
+
+
+      
       const providers = uniqueProviders.aggregations.unique.buckets.map(
         (bucket) => {
           const topHit = bucket.top_provider_hits.hits.hits[0]._source;
@@ -2079,7 +2116,7 @@ class SearchService {
     }
   }
 
-  async getLocationIds(searchRequest = {}) {
+  async getLocationIds(searchRequest = {}, targetLanguage = "en") {
     try {
       let matchQuery = [];
 
@@ -2091,6 +2128,12 @@ class SearchService {
           },
         });
       }
+
+      matchQuery.push({
+        match: {
+          language: targetLanguage,
+        },
+      });
 
       // Construct the base query object
       const baseQuery = {
@@ -2104,7 +2147,7 @@ class SearchService {
         index: "items",
         size: 0,
         body: {
-          query: matchQuery.length ? baseQuery : undefined, // Only add the query if there are conditions
+          query: baseQuery, // Only add the query if there are conditions
           aggs: {
             location_count: {
               cardinality: {
