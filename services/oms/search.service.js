@@ -1981,46 +1981,39 @@ class SearchService {
       size: 0,
       query: query_obj,
       aggs: {
-        categoryCount: {
-          cardinality: {
-            field: "item_details.category_id",
+        domainCategories: {
+          terms: {
+            field: "context.domain",
           },
-        },
-      },
-    });
-
-    const categoryCount = totalCategories.aggregations.categoryCount.value;
-
-    if (categoryCount === 0) {
-      return {
-        unique_categories: [],
-      };
-    }
-
-    const getCategories = await client.search({
-      index: "items",
-      size: 0,
-      body: {
-        query: query_obj,
-        aggs: {
-          unique: {
-            terms: {
-              field: "item_details.category_id",
-              size: categoryCount,
+          aggs: {
+            uniqueCategories: {
+              terms: {
+                field: "item_details.category_id",
+              },
             },
           },
         },
       },
     });
-    const uniqueCategories = getCategories.aggregations.unique.buckets.map(
-      (category) => {
-        return { code: category.key, label: category.key };
-      }
-    );
 
-    return {
-      unique_categories: uniqueCategories,
-    };
+    console.log("CATEGORIES", totalCategories);
+  
+    const domainBuckets = totalCategories.aggregations.domainCategories.buckets;
+
+    console.log("DOMAIN BUCKETS", totalCategories.aggregations.domainCategories.buckets);
+
+    let result = {};
+  
+    domainBuckets.forEach(domainBucket => {
+      const domainName = domainBucket.key;
+      const uniqueCategories = domainBucket.uniqueCategories.buckets.map(category => {
+        return { code: category.key, label: category.key };
+      });
+  
+      result[domainName] = uniqueCategories;
+    });
+  
+    return result;
   }
 
   async getProviderIds(searchRequest = {}, targetLanguage = "en") {
