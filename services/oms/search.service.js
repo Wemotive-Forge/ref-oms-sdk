@@ -244,9 +244,9 @@ class SearchService {
         provider_count: group[0].provider_count.value,
         flagged_items_count: group[0].item_flagged_count.doc_count,
         flagged_providers_count: group[0].provider_flagged_count.doc_count,
-        flag: group[0].seller_flag_count.doc_count,
-        manual_flag: group[0].manual_seller_flag_count.doc_count,
-        auto_flag: group[0].auto_seller_flag_count.doc_count,
+        flag: group[0].seller_flag_count.doc_count > 0,
+        manual_flag: group[0].manual_seller_flag_count.doc_count  > 0,
+        auto_flag: group[0].auto_seller_flag_count.doc_count > 0,
       };
     });
 
