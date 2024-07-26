@@ -486,7 +486,23 @@ class SearchController {
           next(err);
         });
     }
+    getUniqueCodes(req, res, next) {
+      const headers = req.headers;
+      const targetlanguage = headers["targetlanguage"];
     
+      searchService
+        .getUniqueCodes(targetlanguage)
+        .then((response) => {
+          if (!response) {
+            throw new NoRecordFoundError("No unique codes found");
+          } else {
+            res.json(response);
+          }
+        })
+        .catch((err) => {
+          next(err);
+        });
+    }    
 }
 
 export default SearchController;
