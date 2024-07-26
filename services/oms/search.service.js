@@ -149,7 +149,10 @@ class SearchService {
       },
     };
 
-    
+    // Determine sort field and order
+    let sortField = searchRequest.sortField || "seller_flag"
+    let sortOrder = searchRequest.sortOrder || "asc"
+
     const allSellers = await client.search({
       index: "items",
       query: query_obj,
@@ -163,13 +166,20 @@ class SearchService {
         unique: {
           composite: {
             after: afterKey,
-            sources: {
-              "context.bpp_id": {
-                terms: {
-                  field: "context.bpp_id",
+            sources: [
+              {
+                [sortField]: {
+                  terms: { field: sortField, order: sortOrder, missing_bucket: true },
                 },
               },
-            },
+              {
+                "context.bpp_id": {
+                  terms: {
+                    field: "context.bpp_id",
+                  },
+                },
+              },
+            ],
             size: searchRequest.limit,
           },
           aggs: {
