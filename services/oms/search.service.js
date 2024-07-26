@@ -2205,6 +2205,51 @@ class SearchService {
       throw err;
     }
   }
-}
+
+  async getUniqueCodes(targetLanguage = "en") {
+    let matchQuery = [];
+  
+    matchQuery.push({
+      match: {
+        language: targetLanguage,
+      },
+    });
+  
+    let query_obj = {
+      bool: {
+        must: matchQuery,
+      },
+    };
+  
+    const totalItems = await client.search({
+      index: "items",
+      size: 1000,
+      query: query_obj,
+      _source: ["item_details.tags"], // Retrieve only necessary fields
+    });
+  
+    const hits = totalItems.hits.hits;
+    const uniqueCodesSet = new Set();
+  
+    hits.forEach(hit => {
+      const tags = hit._source.item_details.tags;
+      
+      // Find the 'attribute' tag
+      const attributeTags = tags.filter(tag => tag.code === "attribute");
+      
+      // Extract keys from 'attribute' tags
+      attributeTags.forEach(tag => {
+        tag.list.forEach(attr => {
+          uniqueCodesSet.add(attr.code);
+        });
+      });
+    });
+  
+    // Convert the Set to an array
+    const uniqueCodesArray = [...uniqueCodesSet];
+  
+    return uniqueCodesArray;
+  }
+}  
 
 export default SearchService;
