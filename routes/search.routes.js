@@ -101,4 +101,6 @@ router.get(
 router.get(
     '/location-ids', searchController.getLocationIds
 )
+
+router.get('/unique-codes', searchController.getUniqueCodes)
 export default router;
