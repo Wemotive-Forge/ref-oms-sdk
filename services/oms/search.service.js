@@ -2221,33 +2221,31 @@ class SearchService {
       },
     };
   
-    const totalItems = await client.search({
+    const response = await client.search({
       index: "items",
-      size: 1000,
+      size: 0,
       query: query_obj,
-      _source: ["item_details.tags"], // Retrieve only necessary fields
+      aggs: {
+        filteredTags: {
+          filter: {
+            term: { "item_details.tags.code": "attribute" }
+          },
+          aggs: {
+            uniqueAttributeCodes: {
+              terms: {
+                field: "item_details.tags.list.code", // Field path for the aggregation
+                size: 1000
+              }
+            }
+          }
+        }
+      }
     });
-  
-    const hits = totalItems.hits.hits;
-    const uniqueCodesSet = new Set();
-  
-    hits.forEach(hit => {
-      const tags = hit._source.item_details.tags;
-      
-      // Find the 'attribute' tag
-      const attributeTags = tags.filter(tag => tag.code === "attribute");
-      
-      // Extract keys from 'attribute' tags
-      attributeTags.forEach(tag => {
-        tag.list.forEach(attr => {
-          uniqueCodesSet.add(attr.code);
-        });
-      });
-    });
-  
-    // Convert the Set to an array
-    const uniqueCodesArray = [...uniqueCodesSet];
-  
+
+    // Extract unique codes from aggregation results
+    const buckets = response.aggregations.filteredTags.uniqueAttributeCodes.buckets;
+    const uniqueCodesArray = buckets.map(bucket => bucket.key);
+
     return uniqueCodesArray;
   }
 }  
