@@ -1768,50 +1768,73 @@ class SearchService {
 
       if (searchRequest.type) {
         matchQuery.push({
-          match: {
-            type: searchRequest.type,
+          bool: {
+            must: [
+              {
+                // Match the 'type' field with the value provided in the search request
+                match: {
+                  "type": searchRequest.type,
+                },
+              },
+              {
+                // Ensure that the 'type' field specifically matches 'item'
+                term: {
+                  "type": "item",
+                },
+              },
+            ],
           },
         });
-      }
+      }      
 
       // Add variant filter
       if (searchRequest.variant) {
         matchQuery.push({
-          match: {
-            "item_details.parent_item_id": searchRequest.variant,
-          },
-        });
-      }
-
-
-    // Add customisation filter
-    if (searchRequest.customisation) {
-      if (JSON.parse(searchRequest.customisation) === true) {
-        matchQuery.push({
           bool: {
             must: [
               {
-                term: {
-                  "item_details.tags.code": "custom_group",
+                // Check if the 'item_details.parent_item_id' field exists in the document
+                exists: {
+                  field: "item_details.parent_item_id",
                 },
               },
-            ],
-          },
-        });
-      } else {
-        matchQuery.push({
-          bool: {
-            must_not: [
               {
-                term: {
-                  "item_details.tags.code": "custom_group",
+                // Match the 'item_details.parent_item_id' field with the value provided in the search request
+                match: {
+                  "item_details.parent_item_id": searchRequest.variant,
                 },
               },
             ],
           },
         });
       }
-    }
+
+      // Add customisation filter
+      if (searchRequest.customisation) {
+        const isCustomisation = JSON.parse(searchRequest.customisation);
+        matchQuery.push({
+          bool: {
+            must: isCustomisation
+              ? [
+                {
+                  term: {
+                    "item_details.tags.code": "custom_group",
+                  },
+                },
+              ]
+              : [],
+            must_not: isCustomisation
+              ? []
+              : [
+                {
+                  term: {
+                    "item_details.tags.code": "custom_group",
+                  },
+                },
+              ],
+          },
+        });
+      }
 
       let query_obj = {
         bool: {
