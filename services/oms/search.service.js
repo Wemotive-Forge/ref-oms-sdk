@@ -732,14 +732,6 @@ class SearchService {
     try {
       let matchQuery = [];
 
-      if (searchRequest.domain) {
-        matchQuery.push({
-          match: {
-            "context.domain": searchRequest.domain,
-          },
-        });
-      }
-
       //default language search
       matchQuery.push({
         match: {
@@ -752,11 +744,11 @@ class SearchService {
           must: [...matchQuery, { exists: { field: "location_details" } }],
           should: [
             //TODO: enable this once UI apis have been changed
-            {
-              match: {
-                "location_details.type.keyword": "pan",
-              },
-            },
+            // {
+            //   match: {
+            //     "location_details.type.keyword": "pan",
+            //   },
+            // },
             {
               geo_shape: {
                 "location_details.polygons": {
