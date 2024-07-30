@@ -747,21 +747,9 @@ class SearchService {
         },
       });
 
-      // Geo distance filter
-      let geoDistanceFilter = {
-        geo_distance: {
-          distance: "50km",
-          "location_details.gps": {
-            lat: parseFloat(searchRequest.latitude),
-            lon: parseFloat(searchRequest.longitude),
-          },
-        },
-      };
-
       let query_obj = {
         bool: {
-          must: matchQuery,
-          filter: [geoDistanceFilter],
+          must: [...matchQuery, { exists: { field: "location_details" } }],
           should: [
             //TODO: enable this once UI apis have been changed
             {
@@ -801,8 +789,66 @@ class SearchService {
             products: {
               top_hits: {
                 size: 1,
+                _source: {
+                  includes: [
+                    "location_details.circle.gps",
+                    "context.domain",
+                    "provider_details.descriptor",
+                    "provider_details.id",
+                  ],
+                },
               },
             },
+            distance_calculation: {
+              scripted_metric: {
+                init_script: "state.distances = []",
+                map_script: `
+                      if (doc['location_details.circle.gps'].size() > 0) {
+                        def lat = doc['location_details.circle.gps'].lat;
+                        def lon = doc['location_details.circle.gps'].lon;
+                        double lat1 = params.lat * Math.PI / 180;
+                        double lon1 = params.lon * Math.PI / 180;
+                        double lat2 = lat * Math.PI / 180;
+                        double lon2 = lon * Math.PI / 180;
+                        double dLat = lat2 - lat1;
+                        double dLon = lon2 - lon1;
+                        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                        double earthRadius = 6371; // Earth's radius in km
+                        double distance = earthRadius * c;
+                        state.distances.add(distance);
+                      }
+                    `,
+                combine_script: "state.distances",
+                reduce_script: `
+                double minDist = Double.POSITIVE_INFINITY;
+                for (d in states) {
+                  for (dist in d) {
+                    if (dist < minDist) {
+                      minDist = dist;
+                    }
+                  }
+                }
+                return minDist;
+              `,
+              params: {
+                lat: parseFloat(searchRequest.latitude),
+                lon: parseFloat(searchRequest.longitude),
+                }
+              }
+            },
+            sorted_buckets: {
+              bucket_sort: {
+                sort: [
+                  {
+                    "distance_calculation.value": {
+                      order: "asc"
+                    }
+                  }
+                ],
+                size: searchRequest.limit
+              }
+            }
           },
         },
         unique_location_count: {
@@ -816,21 +862,6 @@ class SearchService {
       let queryResults = await client.search({
         body: {
           query: query_obj,
-          sort: [
-            {
-              _geo_distance: {
-                "location_details.gps": {
-                  lat: parseFloat(searchRequest.latitude),
-                  lon: parseFloat(searchRequest.longitude),
-                },
-                order: "asc",
-                unit: "km",
-                mode: "min",
-                distance_type: "arc",
-                ignore_unmapped: true,
-              },
-            },
-          ],
           aggs: aggr_query,
           size: 0,
         },
@@ -839,6 +870,7 @@ class SearchService {
       // Extract unique providers from the aggregation results
       let unique_location =
         queryResults.aggregations.unique_location.buckets.map((bucket) => {
+          let distance = bucket.distance_calculation.value;
           const details = bucket.products.hits.hits.map(
             (hit) => hit._source
           )[0];
@@ -847,6 +879,7 @@ class SearchService {
             provider_descriptor: details.provider_details.descriptor,
             provider: details.provider_details.id,
             ...details.location_details,
+            distance: distance
           };
 
           // return {...bucket.products.hits.hits[0]._source.location_details};
