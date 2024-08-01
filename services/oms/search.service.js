@@ -136,6 +136,14 @@ class SearchService {
       });
     }
 
+    if (searchRequest.manualFlagUpdatedAt) {
+      matchQuery.push({
+        match: {
+          "manual_seller_flag_updated_at": searchRequest.manualFlagUpdatedAt,
+        },
+      });
+    }   
+
     if (searchRequest.domain) {
       matchQuery.push({
         match: {
@@ -149,7 +157,10 @@ class SearchService {
       },
     };
 
-    
+    // Determine sort field and order
+    let sortField = searchRequest.sortField || "seller_flag";
+    let sortOrder = searchRequest.sortOrder || "asc";
+
     const allSellers = await client.search({
       index: "items",
       query: query_obj,
@@ -163,13 +174,20 @@ class SearchService {
         unique: {
           composite: {
             after: afterKey,
-            sources: {
-              "context.bpp_id": {
-                terms: {
-                  field: "context.bpp_id",
+            sources: [
+              {
+                [sortField]: {
+                  terms: { field: sortField, order: sortOrder, missing_bucket: true },
                 },
               },
-            },
+              {
+                "context.bpp_id": {
+                  terms: {
+                    field: "context.bpp_id",
+                  },
+                },
+              },
+            ],
             size: searchRequest.limit,
           },
           aggs: {
@@ -1507,6 +1525,14 @@ class SearchService {
         });
       }
 
+      if (searchRequest.manualFlagUpdatedAt){
+        matchQuery.push({
+          match: {
+            "manual_provider_flag_updated_at": searchRequest.manualFlagUpdatedAt,
+          },
+        });
+      }
+
       if (searchRequest.bpp_id) {
         matchQuery.push({
           match: {
@@ -1558,6 +1584,8 @@ class SearchService {
       // Calculate pagination parameters
       let size = parseInt(searchRequest.limit);
 
+      let sortField = searchRequest.sortField || "provider_flag";
+      let sortOrder = searchRequest.sortOrder || "asc";
 
       // Perform the search with pagination and aggregations
       const locationProviderFlags = await client.search({
@@ -1573,6 +1601,11 @@ class SearchService {
           unique_providers_location: {
             composite: {
               sources:  [
+                {
+                  [sortField]: {
+                    terms: { field: sortField, order: sortOrder, missing_bucket: true },
+                  },
+                },
                 { provider_id: { terms: { field: "provider_details.id" } } },
               ],
               size: size,
@@ -1726,6 +1759,14 @@ class SearchService {
         });
       }
 
+      if(searchRequest.manualFlagUpdatedAt) {
+        matchQuery.push({
+          match: {
+            "manual_item_flag_updated_at": searchRequest.manualFlagUpdatedAt
+          },
+        });
+      }
+
       if (searchRequest.city) {
         matchQuery.push({
           match: {
@@ -1835,12 +1876,24 @@ class SearchService {
       let page = parseInt(searchRequest.pageNumber);
       const from = (page - 1) * size;
 
+      // Determine sorting parameters
+      let sortField = searchRequest.sortField 
+      let sortOrder = searchRequest.sortOrder
+
       // Elasticsearch query with aggregation
       let queryResults = await client.search({
         index: "items",
         body: {
           query: query_obj,
           from: from,
+          sort: [
+            {
+              [sortField]: {
+                order: sortOrder,
+                unmapped_type: "keyword" // Ensures sort works even if field is not present
+              }
+            }
+          ],
           size: size,
           _source: [
             "item_details",
