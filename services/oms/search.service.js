@@ -176,7 +176,7 @@ class SearchService {
             products: {
               top_hits: {
                 size: 1,
-                _source: ["bpp_details.bpp_id", "bpp_details.name"],
+                _source: ["bpp_details.bpp_id", "bpp_details.name", "manual_seller_flag_updated_at"],
               },
             },
             provider_count: {
@@ -247,6 +247,7 @@ class SearchService {
         flag: group[0].seller_flag_count.doc_count > 0,
         manual_flag: group[0].manual_seller_flag_count.doc_count > 0,
         auto_flag: group[0].auto_seller_flag_count.doc_count > 0,
+        manual_flag_updated_at: group[0].products.hits.hits[0]._source.manual_seller_flag_updated_at || 'N/A',
       };
     });
 
@@ -1146,15 +1147,15 @@ class SearchService {
     switch (searchRequest.type) {
       case "seller":
         key = "context.bpp_id";
-        source.push("seller_error_tags", "seller_flag","manual_seller_flag", "auto_seller_flag");
+        source.push("seller_error_tags", "seller_flag","manual_seller_flag", "auto_seller_flag", "manual_seller_flag_updated_at");
         break;
       case "item":
         key = "id";
-        source.push("item_error_tags", "item_flag","manual_item_flag", "auto_item_flag");
+        source.push("item_error_tags", "item_flag","manual_item_flag", "auto_item_flag", "manual_item_flag_updated_at");
         break;
       case "provider":
         key = "provider_details.id";
-        source.push("provider_error_tags", "provider_flag","manual_provider_flag", "auto_provider_flag");
+        source.push("provider_error_tags", "provider_flag","manual_provider_flag", "auto_provider_flag", "manual_provider_flag_updated_at");
         break;
       default:
         return { error: "Type must be from ['item', 'seller', 'provider']" };
@@ -1195,6 +1196,7 @@ class SearchService {
           flag: result.hits.hits[0]._source[source[1]] || false,
           manual_flag: result.hits.hits[0]._source[source[2]]  || false,
           auto_flag: result.hits.hits[0]._source[source[3]]  || false,
+          manual_flag_updated_at: result.hits.hits[0]._source[source[4]] || 'N/A',
           error_tag: result.hits.hits[0]._source[source[0]] || [],
         },
       ];
@@ -1203,6 +1205,9 @@ class SearchService {
     return result.hits.hits.map((hit) => {
       return {
         flag: hit._source[source[1]] || false,
+        manual_flag: hit._source[source[2]] || false,
+        auto_flag: hit._source[source[3]] || false,
+        manual_flag_updated_at: hit._source[source[4]] || 'N/A',
         error_tag: hit._source[source[0]] || [],
       };
     });
@@ -1273,19 +1278,19 @@ class SearchService {
         manualKey = "manual_seller_flag";
         errorKey = "seller_error_tags";
         key = "context.bpp_id";
-        source = `ctx._source.seller_flag = params.flagged; ctx._source.seller_error_tags = params.errorTag; ctx._source.manual_seller_flag = params.flagged;`;
+        source = `ctx._source.seller_flag = params.flagged; ctx._source.seller_error_tags = params.errorTag; ctx._source.manual_seller_flag = params.flagged; ctx._source.manual_seller_flag_updated_at = params.updatedAt`;
         break;
       case "item":
         manualKey = "manual_item_flag";
         key = "id";
         errorKey = "item_error_tags";
-        source = `ctx._source.item_flag = params.flagged; ctx._source.item_error_tags = params.errorTag; ctx._source.manual_item_flag = params.flagged;`;
+        source = `ctx._source.item_flag = params.flagged; ctx._source.item_error_tags = params.errorTag; ctx._source.manual_item_flag = params.flagged; ctx._source.manual_item_flag_updated_at = params.updatedAt`;
         break;
       case "provider":
         key = "provider_details.id";
         manualKey = "manual_provider_flag";
         errorKey = "provider_error_tags";
-        source = `ctx._source.provider_flag = params.flagged; ctx._source.provider_error_tags = params.errorTag; ctx._source.manual_provider_flag = params.flagged;`;
+        source = `ctx._source.provider_flag = params.flagged; ctx._source.provider_error_tags = params.errorTag; ctx._source.manual_provider_flag = params.flagged; ctx._source.manual_provider_flag_updated_at = params.updatedAt`;
         break;
       default:
         return { error: "Type must be from ['item', 'seller', 'provider']" };
@@ -1311,6 +1316,7 @@ class SearchService {
         params: {
           flagged: searchRequest.flagged,
           errorTag: searchRequest.flagged ? searchRequest.errorTag : [],
+          updatedAt: new Date().toISOString()
         },
       },
     });
@@ -1619,7 +1625,8 @@ class SearchService {
             location: topHit.location_details.address.locality,
             flag: topHit.provider_flag || false,
             manual_flag : topHit.manual_provider_flag || false,
-            auto_flag : topHit.auto_provider_flag || false
+            auto_flag : topHit.auto_provider_flag || false,
+            manual_flag_updated_at: topHit.manual_provider_flag_updated_at || 'N/A',
           })
 
           if (bucket["products_without_locations_id"].doc_count > 0){
@@ -1638,6 +1645,7 @@ class SearchService {
               flag: topHit.provider_flag || false,
               auto_flag : topHit.auto_provider_flag || false,
               manual_flag : topHit.manual_provider_flag || false,
+              manual_flag_updated_at: topHit.manual_provider_flag_updated_at || 'N/A',
             })
           }
          
@@ -1851,7 +1859,8 @@ class SearchService {
             "location_details.id",
             "provider_details.id",
             "auto_item_flag",
-            "manual_item_flag"
+            "manual_item_flag",
+            "manual_item_flag_updated_at"
           ],
         },
       });
@@ -1884,6 +1893,7 @@ class SearchService {
           variant: variant,
           auto_flag: hit._source.auto_item_flag || false,
           manual_flag: hit._source.manual_item_flag || false,
+          manual_flag_updated_at: hit._source.manual_item_flag_updated_at || 'N/A'
         };
       });
 
