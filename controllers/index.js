@@ -5,6 +5,7 @@ import returnController from "./return.controller";
 import sellerController from "./seller.controller";
 import settlementController from "./settlement.controller";
 import searchController from "./search.controller";
+import ondcUserController from "./ondcuser.controller";
 
 export {
     authenticationController,
@@ -13,5 +14,6 @@ export {
     returnController,
     sellerController,
     settlementController,
-    searchController
+    searchController,
+    ondcUserController
 }

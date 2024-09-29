@@ -5,6 +5,7 @@ import returnService from "./return.service";
 import sellerService from "./seller.service";
 import settlementService from "./settlement.service";
 import searchService from './search.service';
+import ondcUserService from './ondcUser.service';
 
 export {
     authenticationService,
@@ -13,5 +14,6 @@ export {
     returnService,
     sellerService,
     settlementService,
-    searchService
+    searchService,
+    ondcUserService
 }

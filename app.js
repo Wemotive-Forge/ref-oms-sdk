@@ -14,7 +14,8 @@ import {
     returnRoutes,
     sellerRoutes,
     settlementRoutes,
-    searchRoutes
+    searchRoutes,
+    ondcUserRoutes
 } from './routes';
 const mailer = new Mailer();
 
@@ -63,7 +64,7 @@ app.use('/api', returnRoutes);
 app.use('/api', sellerRoutes);
 app.use('/api', settlementRoutes);
 app.use('/api', searchRoutes);
-
+app.use('/api', ondcUserRoutes);
 app.disable('etag');
 
 // Error handler
