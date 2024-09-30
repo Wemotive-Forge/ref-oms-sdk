@@ -118,6 +118,9 @@ class OndcUserService {
         }
       }
 
+      if(data.userId){
+        whereCondition.userId = data.userId;
+      }
       const ondcUsers = await Address.findAndCountAll({
         where: whereCondition,
         offset: data.offset,
