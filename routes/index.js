@@ -7,6 +7,7 @@ import sellerRoutes from "./seller.routes";
 import settlementRoutes from "./settlement.routes";
 import searchRoutes from './search.routes';
 import ondcUserRoutes from './ondcUser.routes'
+import offerRoutes from './offer.route'
 
 export {
     authenticationRoutes,
@@ -17,5 +18,6 @@ export {
     sellerRoutes,
     settlementRoutes,
     searchRoutes,
-    ondcUserRoutes
+    ondcUserRoutes,
+    offerRoutes
 }

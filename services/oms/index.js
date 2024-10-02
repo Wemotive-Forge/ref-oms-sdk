@@ -6,6 +6,7 @@ import sellerService from "./seller.service";
 import settlementService from "./settlement.service";
 import searchService from './search.service';
 import ondcUserService from './ondcUser.service';
+import offerService from './offer.service'
 
 export {
     authenticationService,
@@ -15,5 +16,6 @@ export {
     sellerService,
     settlementService,
     searchService,
-    ondcUserService
+    ondcUserService,
+    offerService 
 }

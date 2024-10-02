@@ -57,10 +57,10 @@ router.get(
     '/custom-menus',  searchController.getCustomMenu,
 );
 
-// get offers
-router.get(
-    '/offers',  searchController.getOffers,
-);
+// // get offers
+// router.get(
+//     '/offers',  searchController.getOffers,
+// );
 
 router.get(
     '/list-sellers', searchController.getSellerDetails

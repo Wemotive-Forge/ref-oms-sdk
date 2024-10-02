@@ -7,7 +7,10 @@ const MESSAGES = {
     LOGIN_ERROR_USER_SESSION_OVERRIDE: 'Invalid email or OTP, please try again',
     LOGIN_ERROR_USER_ACCESS_TOKEN_INVALID: 'Sorry, you are not authorised. Please login again to continue',
     TIMEZONE_ERROR: 'startTime must be less than or equal to endTime',
-    INVALID_DATE: 'Invalid date format'
+    INVALID_DATE: 'Invalid date format',
+    OFFER_NOT_EXISTS: 'We couldn\'t find the offer with given details',
+    OFFER_CODE_EXISTS: 'An Offer with the given offerId already exists',
+    
 };
 
 export default MESSAGES;
