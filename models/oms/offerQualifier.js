@@ -11,6 +11,12 @@ module.exports = (sequelize, DataTypes) => {
   },
   itemCount: {
     type: DataTypes.INTEGER,
+  },
+  maxUsagePerUser: {
+    type: DataTypes.INTEGER,
+  },
+  usageDurationInDays: {
+    type: DataTypes.INTEGER,
   }
 },{
     freezeTableName: true,

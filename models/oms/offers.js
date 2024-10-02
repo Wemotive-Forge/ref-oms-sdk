@@ -25,6 +25,10 @@ module.exports = (sequelize, DataTypes) => {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
   },
+  status: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+  },
   validFrom: {
     type: DataTypes.DATE,
   },
@@ -36,6 +40,9 @@ module.exports = (sequelize, DataTypes) => {
   },
   images: {
     type: DataTypes.ARRAY(DataTypes.STRING), // Assuming the images are an array of strings
+  },
+  totalQty: {
+    type: DataTypes.INTEGER,
   },
   createdBy: {
     type: DataTypes.STRING,
