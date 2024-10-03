@@ -33,10 +33,10 @@ module.exports = (sequelize, DataTypes) => {
     defaultValue: true,
   },
   validFrom: {
-    type: DataTypes.DATE,
+    type: DataTypes.BIGINT,
   },
   validTo: {
-    type: DataTypes.DATE,
+    type: DataTypes.BIGINT,
   },
   items: {
     type: DataTypes.JSONB,

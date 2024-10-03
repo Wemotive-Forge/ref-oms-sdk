@@ -21,6 +21,16 @@ class OfferController {
         }
     }
 
+    async getOffersForUser(req, res, next) {
+        try {
+            const currentUser = req.user;
+            const offers = await offerService.getOffersForUser(req.query,currentUser);
+            return res.json(offers);
+        } catch (error) {
+            next(error);
+        }
+    }
+
     async updateOffer(req, res, next) {
         try {
             const currentUser = req.user;

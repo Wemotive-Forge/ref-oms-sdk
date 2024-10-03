@@ -19,4 +19,6 @@ router.get('/offers',
 router.put('/offers/:offerId',
     offerController.updateOffer);
 
+router.get('/offers/user/:userId',
+    offerController.getOffersForUser);    
 export default router;

@@ -1,4 +1,4 @@
-import { Offer, OfferQualifier, OfferBenefit } from '../../models';
+import { Offer, OfferQualifier, OfferBenefit ,UserOfferUsage} from '../../models';
 import MESSAGES from '../../utils/messages';
 import { DuplicateRecordFoundError } from '../../lib/errors/errors';
 import { Op } from 'sequelize';
@@ -221,6 +221,20 @@ class OfferService {
             throw err;
         }
     }
+
+    async getOffersForUser( data) {
+        try {
+            let whereCondition
+            const orders = await Offer.findAndCountAll({
+                where: whereCondition,
+                order: [['createdAt', 'DESC']],
+              });
+              return orders;
+        } catch (err) {
+            throw err;
+        }
+    }
+
 
 }
 
