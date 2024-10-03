@@ -17,6 +17,9 @@ module.exports = (sequelize, DataTypes) => {
   description: {
     type: DataTypes.STRING,
   },
+  shortDescription: {
+    type: DataTypes.STRING,
+  },
   autoApply: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,

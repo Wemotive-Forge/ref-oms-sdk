@@ -1,6 +1,6 @@
 import { Offer, OfferQualifier, OfferBenefit } from '../../models';
 import MESSAGES from '../../utils/messages';
-import { BadRequestParameterError, DuplicateRecordFoundError } from '../../lib/errors/errors';
+import { DuplicateRecordFoundError } from '../../lib/errors/errors';
 import { Op } from 'sequelize';
 class OfferService {
     async createOffer(offerDetails, currentUser) {
@@ -14,8 +14,13 @@ class OfferService {
                     }
                 });
 
+                console.log(
+                    'DuplicateRecordFoundError',DuplicateRecordFoundError
+                )
                 if (existingOffer) {
-                    throw new DuplicateRecordFoundError(MESSAGES.OFFER_CODE_EXISTS);
+                    const error = new Error(MESSAGES.OFFER_CODE_EXISTS);
+                    error.status = 400;  // HTTP 400 Bad Request
+                    throw error;
                 }
 
                 // Prepare the offer object
@@ -30,7 +35,8 @@ class OfferService {
                     images: offerDetails.images,
                     items: offerDetails.items, // Assuming items is an array or JSONB in Sequelize
                     totalQty: offerDetails.totalQty,
-                    status:offerDetails.status
+                    status:offerDetails.status,
+                    shortDescription: offerDetails.shortDescription
                     // updatedBy: currentUser.id,
                     // createdBy: currentUser.id,
                 };
@@ -74,7 +80,11 @@ class OfferService {
             });
 
             if (!existingOffer) {
-                throw new NoRecordFoundError(MESSAGES.OFFER_NOT_EXISTS);
+                if (existingOffer) {
+                    const error = new Error(MESSAGES.OFFER_NOT_EXISTS);
+                    error.status = 400;  // HTTP 400 Bad Request
+                    throw error;
+                }
             }
 
             // Check for duplicate offerId within the same organization
@@ -86,7 +96,11 @@ class OfferService {
             });
 
             if (existingOfferId) {
-                throw new DuplicateRecordFoundError(MESSAGES.OFFER_CODE_EXISTS);
+                if (existingOffer) {
+                    const error = new Error(MESSAGES.OFFER_CODE_EXISTS);
+                    error.status = 400;  // HTTP 400 Bad Request
+                    throw error;
+                }
             }
 
             // Prepare updated offer object
@@ -101,7 +115,8 @@ class OfferService {
                 images: offerDetails.images,
                 items: offerDetails.items,
                 totalQty: offerDetails.totalQty,
-                status: offerDetails.status
+                status: offerDetails.status,
+                shortDescription: offerDetails.shortDescription
             };
 
             // Update the offer
@@ -173,7 +188,9 @@ class OfferService {
             }})
 
             if (!offer) {
-                throw new NoRecordFoundError(MESSAGES.OFFER_NOT_EXISTS);
+                const error = new Error(MESSAGES.OFFER_NOT_EXISTS);
+                error.status = 400;  // HTTP 400 Bad Request
+                throw error;
             }
             let jsonObject = offer.toJSON()
             
