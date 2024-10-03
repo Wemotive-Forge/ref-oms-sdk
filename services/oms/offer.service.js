@@ -29,7 +29,8 @@ class OfferService {
                     additive: offerDetails.additive,
                     images: offerDetails.images,
                     items: offerDetails.items, // Assuming items is an array or JSONB in Sequelize
-                    totalQty: offerDetails.totalQty
+                    totalQty: offerDetails.totalQty,
+                    status:offerDetails.status
                     // updatedBy: currentUser.id,
                     // createdBy: currentUser.id,
                 };
@@ -99,7 +100,8 @@ class OfferService {
                 additive: offerDetails.additive,
                 images: offerDetails.images,
                 items: offerDetails.items,
-                totalQty: offerDetails.totalQty
+                totalQty: offerDetails.totalQty,
+                status: offerDetails.status
             };
 
             // Update the offer
