@@ -2,6 +2,7 @@ import { Offer, OfferQualifier, OfferBenefit ,UserOfferUsage} from '../../models
 import MESSAGES from '../../utils/messages';
 import { DuplicateRecordFoundError } from '../../lib/errors/errors';
 import { Op } from 'sequelize';
+import offerQualifier from '../../models/oms/offerQualifier';
 class OfferService {
     async createOffer(offerDetails, currentUser) {
 
@@ -209,14 +210,14 @@ class OfferService {
 
     async getOffers( data) {
         try {
-            let whereCondition
-            const orders = await Offer.findAndCountAll({
+            let whereCondition = {}
+            const offers = await Offer.findAndCountAll({
                 where: whereCondition,
                 offset: data.offset,
                 limit: data.limit,
                 order: [['createdAt', 'DESC']],
               });
-              return orders;
+              return offers;
         } catch (err) {
             throw err;
         }
@@ -224,12 +225,49 @@ class OfferService {
 
     async getOffersForUser( data) {
         try {
-            let whereCondition
-            const orders = await Offer.findAndCountAll({
+            let whereCondition = {}
+
+            if (data.currentTime) {
+                whereCondition.validFrom = {
+                    [Op.lte]: data.currentTime,  // validFrom should be less than or equal to the current time
+                };
+                whereCondition.validTo = {
+                    [Op.gte]: data.currentTime,  // validTo should be greater than or equal to the current time
+                };
+            }
+
+            //default checks for active
+            whereCondition.status = true 
+
+            //default check for coupon count
+            whereCondition.totalQty = {
+                [Op.gt]: 0,
+              };
+
+            const offers = await Offer.findAll({
                 where: whereCondition,
                 order: [['createdAt', 'DESC']],
+                raw:true
               });
-              return orders;
+
+              let offerList = []
+              for(let offer of offers){
+                const offerBenefit = await OfferBenefit.findOne({where:{ OfferId: offer.id },raw:true});
+
+                console.log(offerBenefit)
+                const offerQualifier = await OfferQualifier.findOne({where:{ OfferId: offer.id },raw:true});
+
+                    //check if user id has used the coupon or not
+                    console.log("offer usage per user--->",offerQualifier.maxUsagePerUser)
+                    console.log("offer usage per day--->",offerQualifier.usageDurationInDays)
+                //check in user usage DB if user has used coupon before 
+                offer.offerBenefit =  offerBenefit;
+                offer.offerQualifier =  offerQualifier;
+                offer.allowedUsage = true;
+                offerList.push(offer)
+              }
+
+              return offerList;
         } catch (err) {
             throw err;
         }
