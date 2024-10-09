@@ -7,6 +7,7 @@ import settlementController from "./settlement.controller";
 import searchController from "./search.controller";
 import ondcUserController from "./ondcuser.controller";
 import offerController from './offer.controller';
+import widgetController from './widget.controller'
 export {
     authenticationController,
     issueController,
@@ -16,5 +17,6 @@ export {
     settlementController,
     searchController,
     ondcUserController,
-    offerController
+    offerController,
+    widgetController
 }

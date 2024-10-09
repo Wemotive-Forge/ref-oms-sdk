@@ -7,6 +7,7 @@ import settlementService from "./settlement.service";
 import searchService from './search.service';
 import ondcUserService from './ondcUser.service';
 import offerService from './offer.service'
+import widgetService from './widget.service'
 
 export {
     authenticationService,
@@ -17,5 +18,6 @@ export {
     settlementService,
     searchService,
     ondcUserService,
-    offerService 
+    offerService,
+    widgetService
 }
