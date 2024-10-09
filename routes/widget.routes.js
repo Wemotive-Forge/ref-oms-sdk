@@ -17,5 +17,10 @@ router.get('/widget',
 
 router.put('/widget/:widgetId',
     widgetController.updateWidget);
- 
+
+router.post('/widget/upload/url',
+        widgetController.upload);
+     
+    
+
 export default router;

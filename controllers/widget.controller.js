@@ -1,5 +1,5 @@
 import { widgetService } from "../services/oms";
-
+import getSignedUrlForUpload from '../utils/s3Utils';
 class WidgetController {
     async storeWidget(req, res, next) {
         try {
@@ -63,6 +63,11 @@ class WidgetController {
         } catch(error) {
             next(error);
         }
+    }
+
+    async upload(req, res, next) {
+        const currentUser = req.user;
+        return res.send(await getSignedUrlForUpload({path:'widget', ...req.body, currentUser}));
     }
 }
 
