@@ -17,7 +17,10 @@ module.exports = (sequelize, DataTypes) => {
   },
   usageDurationInDays: {
     type: DataTypes.INTEGER,
-  }
+  },
+  usageFrequency: {
+    type: DataTypes.STRING,
+  },
 },{
     freezeTableName: true,
     timestamps: true,
