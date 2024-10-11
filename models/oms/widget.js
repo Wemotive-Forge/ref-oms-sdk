@@ -20,6 +20,9 @@ module.exports = (sequelize, DataTypes) => {
   params: {
     type: DataTypes.JSONB,
   },
+  domain: {
+    type: DataTypes.STRING,
+  },
   cta: {
     type: DataTypes.STRING,
   },

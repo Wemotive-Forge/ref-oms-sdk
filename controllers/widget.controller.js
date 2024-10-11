@@ -69,6 +69,74 @@ class WidgetController {
         const currentUser = req.user;
         return res.send(await getSignedUrlForUpload({path:'widget', ...req.body, currentUser}));
     }
+
+    //sections
+
+    async storeWidgetSection(req, res, next) {
+        try {
+            const data = req.body;
+            const widgetSection = await widgetService.createWidgetSection(data, req.user);
+            return res.send(widgetSection);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async getWidgetSections(req, res, next) {
+        try {
+            const currentUser = req.user;
+            const widgetSections = await widgetService.getWidgetSections(req.query,currentUser);
+            return res.json(widgetSections);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async getWidgetSectionsForUser(req, res, next) {
+        try {
+            const currentUser = req.user;
+            const widgetSections = await widgetService.getWidgetSectionsForUser(req.query,currentUser);
+            return res.json(widgetSections);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async updateWidgetSection(req, res, next) {
+        try {
+            const currentUser = req.user;
+            const data = req.body;
+            const {widgetSectionId} = req.params;
+            const updateResult = await widgetService.updateWidgetSection(widgetSectionId,data, currentUser);
+            return res.send(updateResult);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async deleteWidgetSection(req, res, next) {
+        try {
+            const currentUser = req.user;
+            const {widgetSectionId} = req.params;
+            const deleteResult = await widgetService.deleteWidgetSection(currentUser, widgetSectionId);
+            return res.send(deleteResult);
+        } catch(error) {
+            next(error);
+        }
+    }
+
+    async getWidgetSectionById(req, res, next) {
+        const { widgetSectionId } = req.params;
+        try{
+            const currentUser = req.user;
+            const widget = await widgetService.getWidgetSectionById(widgetSectionId, currentUser);
+            return res.send(widget);
+        } catch(error) {
+            next(error);
+        }
+    }
+
+
 }
 
 module.exports = new  WidgetController();

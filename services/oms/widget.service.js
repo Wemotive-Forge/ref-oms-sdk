@@ -1,4 +1,4 @@
-import { Widget,} from '../../models';
+import { Widget,WidgetSection} from '../../models';
 import MESSAGES from '../../utils/messages';
 import { DuplicateRecordFoundError } from '../../lib/errors/errors';
 import { Op } from 'sequelize';
@@ -33,7 +33,8 @@ class WidgetService {
                     allowRedirection: widgetDetails.allowRedirection,
                     validFrom: widgetDetails.validFrom,
                     validTo: widgetDetails.validTo,
-                    image: widgetDetails.image
+                    image: widgetDetails.image,
+                    domain: widgetDetails.domain
                 };
 
                 // Save the widget
@@ -46,6 +47,43 @@ class WidgetService {
             throw err;
         }
     }
+
+    async createWidgetSection(widgetDetailsSection, currentUser) {
+
+        try {
+            if (widgetDetailsSection) {
+                // Check for existing widget
+                const existingWidgetSection = await WidgetSection.findOne({
+                    where: {
+                        name: widgetDetailsSection.name,
+                    }
+                });
+
+                if (existingWidgetSection) {
+                    const error = new Error(MESSAGES.OFFER_SECTION_CODE_EXISTS);
+                    error.status = 400;  // HTTP 400 Bad Request
+                    throw error;
+                }
+
+                // Prepare the widget object
+                let widgetSectionObj = {
+                    page: widgetDetailsSection.page,
+                    section: widgetDetailsSection.section,
+                    name:widgetDetailsSection.name,
+                    maxItems:widgetDetailsSection.maxItems,
+                };
+
+                // Save the widget section
+                const widgetSection = await WidgetSection.create(widgetSectionObj);
+
+                return widgetSection ;
+            }
+        } catch (err) {
+            // Rollback the transaction in case of an error
+            throw err;
+        }
+    }
+
 
     async updateWidget(id, widgetDetails, currentUser) {
         try {
@@ -93,7 +131,8 @@ class WidgetService {
                     allowRedirection: widgetDetails.allowRedirection,
                     validFrom: widgetDetails.validFrom,
                     validTo: widgetDetails.validTo,
-                    image: widgetDetails.image
+                    image: widgetDetails.image,
+                    domain: widgetDetails.domain
             };
 
             // Update the widget
@@ -109,6 +148,65 @@ class WidgetService {
             throw err;
         }
     }
+
+
+
+    async updateWidgetSection(id, widgetSectionDetails, currentUser) {
+        try {
+            // Find existing widget
+            let existingWidgetSection = await WidgetSection.findOne({
+                where: {
+                    id, // Use Sequelize's `id` field
+                },
+                raw: true // Equivalent to Mongoose's `.lean()`
+            });
+
+            if (!existingWidgetSection) {
+                if (existingWidgetSection) {
+                    const error = new Error(MESSAGES.OFFER_SECTION_NOT_EXISTS);
+                    error.status = 400;  // HTTP 400 Bad Request
+                    throw error;
+                }
+            }
+
+            // Check for duplicate widgetId within the same organization
+            let existingWidgetSectionId = await WidgetSection.findOne({
+                where: {
+                    id: { [Op.ne]: existingWidgetSection.id }, // Ensure the ID is different from the existing widget
+                    name: widgetSectionDetails.name,
+                }
+            });
+
+            if (existingWidgetSectionId) {
+                if (existingWidgetSection) {
+                    const error = new Error(MESSAGES.OFFER_SECTION_CODE_EXISTS);
+                    error.status = 400;  // HTTP 400 Bad Request
+                    throw error;
+                }
+            }
+
+            // Prepare updated widget object
+            let widgetSectionObj = {
+                page: widgetSectionDetails.page,
+                section: widgetSectionDetails.section,
+                name:widgetSectionDetails.name,
+                maxItems:widgetSectionDetails.maxItems,
+            };
+
+            // Update the widget
+            await WidgetSection.update(widgetSectionObj, {
+                where: {
+                    id: existingWidgetSection.id,
+                }
+            });
+
+            return await WidgetSection.findOne({ where: { id: existingWidgetSection.id } }); // Return updated widget
+
+        } catch (err) {
+            throw err;
+        }
+    }
+
     async deleteWidget(currentUser, widgetId) {
         try {
         } catch (err) {
@@ -131,6 +229,42 @@ class WidgetService {
             let jsonObject = widget.toJSON()
 
             return jsonObject;
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    async getWidgetSectionById(widgetSectionId, currentUser) {
+        try {
+            const widgetSection = await WidgetSection.findOne({where:{
+                    id: widgetSectionId,
+                }})
+
+            if (!widgetSection) {
+                const error = new Error(MESSAGES.OFFER_NOT_EXISTS);
+                error.status = 400;  // HTTP 400 Bad Request
+                throw error;
+            }
+            let jsonObject = widgetSection.toJSON()
+
+            return jsonObject;
+        } catch (err) {
+            throw err;
+        }
+    }
+
+
+    async getWidgetSections( data) {
+        try {
+            console.log("get widgetSections");
+            let whereCondition = {}
+            const widgetSections = await WidgetSection.findAndCountAll({
+                where: whereCondition,
+                offset: data.offset,
+                limit: data.limit,
+                order: [['createdAt', 'DESC']],
+            });
+            return widgetSections;
         } catch (err) {
             throw err;
         }

@@ -8,9 +8,10 @@ const MESSAGES = {
     LOGIN_ERROR_USER_ACCESS_TOKEN_INVALID: 'Sorry, you are not authorised. Please login again to continue',
     TIMEZONE_ERROR: 'startTime must be less than or equal to endTime',
     INVALID_DATE: 'Invalid date format',
-    OFFER_NOT_EXISTS: 'We couldn\'t find the offer with given details',
-    OFFER_CODE_EXISTS: 'An Offer with the given offerId already exists',
-    
+    OFFER_NOT_EXISTS: 'We couldn\'t find the Coupon with given details',
+    OFFER_CODE_EXISTS: 'An Coupon with the given offerId already exists',
+    OFFER_SECTION_NOT_EXISTS: 'We couldn\'t find the Coupon section with given details',
+    OFFER_SECTION_CODE_EXISTS: 'An Coupon section with the given offerId already exists'
 };
 
 export default MESSAGES;

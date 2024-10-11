@@ -20,7 +20,23 @@ router.put('/widget/:widgetId',
 
 router.post('/widget/upload/url',
         widgetController.upload);
-     
-    
+
+//sections
+router.post('/widget/section',
+    widgetController.storeWidgetSection);
+
+router.get('/widget/section/all',
+    widgetController.getWidgetSections);
+
+router.get('/widget/section/:widgetSectionId',
+    widgetController.getWidgetSectionById);
+
+router.put('/widget/section/:widgetSectionId',
+    widgetController.updateWidgetSection);
+
+//upload url
+router.post('/widget/upload/url',
+    widgetController.upload);
+
 
 export default router;
