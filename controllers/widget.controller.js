@@ -182,6 +182,40 @@ class WidgetController {
     }
 
 
+    async getTagsByProviderId(req, res, next) {
+        const { providerId } = req.query;
+        try{
+            const currentUser = req.user;
+            const tags = await widgetService.getTagsByProviderId(providerId, currentUser);
+            return res.send(tags);
+        } catch(error) {
+            next(error);
+        }
+    }
+
+
+    async updateProviderTagMapping(req, res, next) {
+        const { providerId } = req.params;
+        try{
+            const currentUser = req.user;
+            const tags = await widgetService.updateProviderTagMapping(req.body, currentUser);
+            return res.send(tags);
+        } catch(error) {
+            next(error);
+        }
+    }
+
+
+    async saveProviderTagMapping(req, res, next) {
+        const { providerId } = req.params;
+        try{
+            const currentUser = req.user;
+            const tags = await widgetService.saveProviderTagMapping(req.body, currentUser);
+            return res.send(tags);
+        } catch(error) {
+            next(error);
+        }
+    }
 
 }
 

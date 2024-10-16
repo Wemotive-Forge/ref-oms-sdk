@@ -1,4 +1,4 @@
-import { Widget,WidgetSection,Tag} from '../../models';
+import { Widget,WidgetSection,Tag,ProviderTagMapping} from '../../models';
 import MESSAGES from '../../utils/messages';
 import { DuplicateRecordFoundError } from '../../lib/errors/errors';
 import { Op } from 'sequelize';
@@ -454,6 +454,95 @@ class WidgetService {
             return widgets;
         } catch (err) {
             throw err;
+        }
+    }
+
+    async saveProviderTagMapping(data,currentUser) {
+        try {
+            const { TagId, providerIds } = data;
+
+            for (const providerId of providerIds) {
+                await ProviderTagMapping.create({
+                    providerId,
+                    TagId,
+                    createdBy: 'system',  // You can adjust this based on your logic
+                    updatedBy: 'system'   // You can adjust this based on your logic
+                });
+            }
+
+            return true;
+            console.log('ProviderTagMapping saved successfully.');
+        } catch (error) {
+            console.error('Error saving ProviderTagMapping:', error);
+        }
+    }
+
+    async updateProviderTagMapping(data,currentUser) {
+        try {
+            const { TagId, providerIds } = data;
+
+            // Step 1: Fetch all existing providerIds for the given TagId
+            const existingMappings = await ProviderTagMapping.findAll({
+                where: { TagId },
+                attributes: ['id', 'providerId']
+            });
+
+            const existingProviderIds = existingMappings.map(mapping => mapping.providerId);
+
+            // Step 2: Determine which providerIds to remove and which to add
+            const toRemove = existingProviderIds.filter(id => !providerIds.includes(id));
+            const toAdd = providerIds.filter(id => !existingProviderIds.includes(id));
+
+            // Step 3: Remove entries that are not in the new providerIds array
+            if (toRemove.length > 0) {
+                await ProviderTagMapping.destroy({
+                    where: {
+                        providerId: {
+                            [Op.in]: toRemove
+                        },
+                        TagId
+                    }
+                });
+            }
+
+            // Step 4: Add new providerIds that aren't already in the database
+            for (const providerId of toAdd) {
+                await ProviderTagMapping.create({
+                    providerId,
+                    TagId,
+                    createdBy: 'system',  // You can adjust this based on your logic
+                    updatedBy: 'system'   // You can adjust this based on your logic
+                });
+            }
+
+            return true;
+            console.log('ProviderTagMapping updated successfully.');
+        } catch (error) {
+            console.error('Error updating ProviderTagMapping:', error);
+        }
+    }
+
+    async getTagsByProviderId(providerId,currentUser) {
+        try {
+            // Step 1: Fetch all ProviderTagMapping entries for the given providerId, including the associated Tag
+            const mappings = await ProviderTagMapping.findAll({
+                where: { providerId },
+                include: [
+                    {
+                        model: Tag,
+                        attributes: [ 'name']  // Specify the attributes you want from the Tag model
+                    }
+                ]
+            });
+
+            // Step 2: Extract the tag details from the mappings
+            const tags = mappings.map(mapping => mapping.Tag.name);
+
+            console.log('Tags associated with providerId:', tags);
+            return tags;
+        } catch (error) {
+            console.error('Error fetching tags for providerId:', error);
+            return [];
         }
     }
 

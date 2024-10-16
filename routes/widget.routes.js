@@ -47,6 +47,16 @@ router.get('/widget/tags/:widgetTagsId',
 router.put('/widget/tags/:widgetTagsId',
     widgetController.updateWidgetTags);
 
+router.post('/widget/tags/providers',
+    widgetController.saveProviderTagMapping);
+
+router.put('/widget/tags/providers/mapping',
+    widgetController.updateProviderTagMapping);
+
+router.get('/widget/tags/providers/:providerId',
+    widgetController.getTagsByProviderId);
+
+
 //upload url
 router.post('/widget/upload/url',
     widgetController.upload);
