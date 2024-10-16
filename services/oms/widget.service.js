@@ -108,7 +108,8 @@ class WidgetService {
                 }
 
                 let widgetTagObj = {
-                    name: widgetTags.name
+                    name: widgetTags.name,
+                    pageTitle: widgetTags.pageTitle
                 };
                 const widgetTg = await Tag.create(widgetTagObj);
 
@@ -275,6 +276,7 @@ class WidgetService {
                 where: {
                     id: { [Op.ne]: existingWidgetTag.id }, // Ensure the ID is different from the existing widget
                     name: widgetTagDetails.name,
+                    pageTitle: widgetTags.pageTitle
                 }
             });
 

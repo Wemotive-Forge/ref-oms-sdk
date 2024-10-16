@@ -10,6 +10,9 @@ module.exports = (sequelize, DataTypes) => {
     type: DataTypes.STRING,
     allowNull: false,
   },
+ pageTitle: {
+    type: DataTypes.STRING,
+  },
   createdBy: {
     type: DataTypes.STRING,
   },
