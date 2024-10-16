@@ -34,6 +34,19 @@ router.get('/widget/section/:widgetSectionId',
 router.put('/widget/section/:widgetSectionId',
     widgetController.updateWidgetSection);
 
+//sections
+router.post('/widget/tags',
+    widgetController.storeWidgetTags);
+
+router.get('/widget/tags/all',
+    widgetController.getWidgetTags);
+
+router.get('/widget/tags/:widgetTagsId',
+    widgetController.getWidgetTagsById);
+
+router.put('/widget/tags/:widgetTagsId',
+    widgetController.updateWidgetTags);
+
 //upload url
 router.post('/widget/upload/url',
     widgetController.upload);

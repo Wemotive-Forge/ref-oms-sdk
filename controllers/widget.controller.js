@@ -137,6 +137,52 @@ class WidgetController {
     }
 
 
+    //tags
+    async storeWidgetTags(req, res, next) {
+        try {
+            const data = req.body;
+            const widgetTags = await widgetService.createWidgetTags(data, req.user);
+            return res.send(widgetTags);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async getWidgetTags(req, res, next) {
+        try {
+            const currentUser = req.user;
+            const widgetTags = await widgetService.getWidgetTags(req.query,currentUser);
+            return res.json(widgetTags);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async updateWidgetTags(req, res, next) {
+        try {
+            const currentUser = req.user;
+            const data = req.body;
+            const {widgetTagsId} = req.params;
+            const updateResult = await widgetService.updateWidgetTags(widgetTagsId,data, currentUser);
+            return res.send(updateResult);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async getWidgetTagsById(req, res, next) {
+        const { widgetTagsId } = req.params;
+        try{
+            const currentUser = req.user;
+            const tags = await widgetService.getWidgetTagsById(widgetTagsId, currentUser);
+            return res.send(tags);
+        } catch(error) {
+            next(error);
+        }
+    }
+
+
+
 }
 
 module.exports = new  WidgetController();

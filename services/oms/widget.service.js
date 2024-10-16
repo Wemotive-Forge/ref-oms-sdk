@@ -1,4 +1,4 @@
-import { Widget,WidgetSection} from '../../models';
+import { Widget,WidgetSection,Tag} from '../../models';
 import MESSAGES from '../../utils/messages';
 import { DuplicateRecordFoundError } from '../../lib/errors/errors';
 import { Op } from 'sequelize';
@@ -90,6 +90,35 @@ class WidgetService {
         }
     }
 
+    async createWidgetTags(widgetTags, currentUser) {
+
+        try {
+            if (widgetTags) {
+                const existingWidgetTags = await Tag.findOne({
+                    where: {
+                        name: widgetTags.name,
+                    }
+                });
+
+                if (existingWidgetTags) {
+                    const error = new Error(MESSAGES.OFFER_SECTION_CODE_EXISTS);
+                    error.status = 400;  // HTTP 400 Bad Request
+                    throw error;
+                }
+
+                let widgetTagObj = {
+                    name: widgetTags.name
+                };
+                const widgetTg = await Tag.create(widgetTagObj);
+
+                return widgetTg ;
+            }
+        } catch (err) {
+            // Rollback the transaction in case of an error
+            throw err;
+        }
+    }
+
 
     async updateWidget(id, widgetDetails, currentUser) {
         try {
@@ -157,6 +186,7 @@ class WidgetService {
 
 
 
+
     async updateWidgetSection(id, widgetSectionDetails, currentUser) {
         try {
             // Find existing widget
@@ -219,6 +249,61 @@ class WidgetService {
         }
     }
 
+
+    async updateWidgetTags(id, widgetTagDetails, currentUser) {
+        try {
+            // Find existing widget
+            let existingWidgetTag = await Tag.findOne({
+                where: {
+                    id, // Use Sequelize's `id` field
+                },
+                raw: true // Equivalent to Mongoose's `.lean()`
+            });
+
+            if (!existingWidgetTag) {
+                if (existingWidgetTag) {
+                    const error = new Error(MESSAGES.OFFER_SECTION_NOT_EXISTS);
+                    error.status = 400;  // HTTP 400 Bad Request
+                    throw error;
+                }
+            }
+
+            // Check for duplicate widgetId within the same organization
+            let existingWidgetTagId = await Tag.findOne({
+                where: {
+                    id: { [Op.ne]: existingWidgetTag.id }, // Ensure the ID is different from the existing widget
+                    name: widgetTagDetails.name,
+                }
+            });
+
+            if (existingWidgetTagId) {
+                if (existingWidgetTag) {
+                    const error = new Error(MESSAGES.OFFER_SECTION_CODE_EXISTS);
+                    error.status = 400;  // HTTP 400 Bad Request
+                    throw error;
+                }
+            }
+
+            // Prepare updated widget object
+            let widgetTagObj = {
+                name:widgetTagDetails.name,
+            };
+
+            // Update the widget
+            await Tag.update(widgetTagObj, {
+                where: {
+                    id: existingWidgetTag.id,
+                }
+            });
+
+            return await Tag.findOne({ where: { id: existingWidgetTag.id } }); // Return updated widget
+
+        } catch (err) {
+            throw err;
+        }
+    }
+
+
     async deleteWidget(currentUser, widgetId) {
         try {
         } catch (err) {
@@ -265,6 +350,25 @@ class WidgetService {
         }
     }
 
+    async getWidgetTagsById(tagId, currentUser) {
+        try {
+            const widgetTag = await Tag.findOne({where:{
+                    id: tagId,
+                }})
+
+            if (!widgetTag) {
+                const error = new Error(MESSAGES.OFFER_NOT_EXISTS);
+                error.status = 400;  // HTTP 400 Bad Request
+                throw error;
+            }
+            let jsonObject = widgetTag.toJSON()
+
+            return jsonObject;
+        } catch (err) {
+            throw err;
+        }
+    }
+
 
     async getWidgetSections( data) {
         try {
@@ -277,6 +381,24 @@ class WidgetService {
                 order: [['createdAt', 'DESC']],
             });
             return widgetSections;
+        } catch (err) {
+            throw err;
+        }
+    }
+
+
+
+
+    async getWidgetTags( data) {
+        try {
+            let whereCondition = {}
+            const widgetTag = await Tag.findAndCountAll({
+                where: whereCondition,
+                offset: data.offset,
+                limit: data.limit,
+                order: [['createdAt', 'DESC']],
+            });
+            return widgetTag;
         } catch (err) {
             throw err;
         }
