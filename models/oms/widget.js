@@ -47,6 +47,9 @@ module.exports = (sequelize, DataTypes) => {
   image: {
     type: DataTypes.STRING,
   },
+  // TagId: {
+  //   type: DataTypes.UUID,
+  // },
   createdBy: {
     type: DataTypes.STRING,
   },
@@ -59,7 +62,13 @@ module.exports = (sequelize, DataTypes) => {
     createdAt: 'createdAt',
     updatedAt: 'updatedAt',
 });
-return Widget;
+
+  Widget.associate = function (models) {
+    // Widget.belongsToMany(models.Role, {through: 'UserRole'});
+    Widget.belongsTo(models.Tag);
+  };
+
+  return Widget;
 
 };
 

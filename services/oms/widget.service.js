@@ -34,7 +34,8 @@ class WidgetService {
                     validFrom: widgetDetails.validFrom,
                     validTo: widgetDetails.validTo,
                     image: widgetDetails.image,
-                    domain: widgetDetails.domain
+                    domain: widgetDetails.domain,
+                    TagId: widgetDetails.TagId
                 };
 
                 // Save the widget
@@ -167,7 +168,8 @@ class WidgetService {
                     validFrom: widgetDetails.validFrom,
                     validTo: widgetDetails.validTo,
                     image: widgetDetails.image,
-                    domain: widgetDetails.domain
+                    domain: widgetDetails.domain,
+                    TagId: widgetDetails.TagId
             };
 
             // Update the widget
@@ -413,6 +415,11 @@ class WidgetService {
                 offset: data.offset,
                 limit: data.limit,
                 order: [['createdAt', 'DESC']],
+                include: [{
+                    model: Tag,  // Include the Tag model
+                    as: 'Tag',   // Alias if necessary (optional)
+                    attributes: ['id', 'name']  // Only fetch specific attributes of Tag
+                }]
               });
               return widgets;
         } catch (err) {
