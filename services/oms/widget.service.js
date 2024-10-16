@@ -275,8 +275,7 @@ class WidgetService {
             let existingWidgetTagId = await Tag.findOne({
                 where: {
                     id: { [Op.ne]: existingWidgetTag.id }, // Ensure the ID is different from the existing widget
-                    name: widgetTagDetails.name,
-                    pageTitle: widgetTagDetails.pageTitle
+                    name: widgetTagDetails.name
                 }
             });
 
@@ -291,6 +290,7 @@ class WidgetService {
             // Prepare updated widget object
             let widgetTagObj = {
                 name:widgetTagDetails.name,
+                pageTitle: widgetTagDetails.pageTitle
             };
 
             // Update the widget
