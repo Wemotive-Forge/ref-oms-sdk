@@ -32,8 +32,6 @@ module.exports = (sequelize, DataTypes) => {
     }, {
         freezeTableName: true,
         timestamps: true,
-        createdAt: 'createdAt',
-        updatedAt: 'updatedAt',
     });
 
     Return.associate = (models) => {

@@ -18,8 +18,6 @@ module.exports = (sequelize, DataTypes) => {
 },{
     freezeTableName: true,
     timestamps: true,
-    createdAt: 'createdAt',
-    updatedAt: 'updatedAt',
 });
     ProviderTagMapping.associate = function (models) {
         ProviderTagMapping.belongsTo(models.Tag);

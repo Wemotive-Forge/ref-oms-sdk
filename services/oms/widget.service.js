@@ -1,7 +1,9 @@
 import { Widget,WidgetSection,Tag,ProviderTagMapping} from '../../models';
 import MESSAGES from '../../utils/messages';
 import { DuplicateRecordFoundError } from '../../lib/errors/errors';
+import client from "../../database/elasticSearch.js";
 import { Op } from 'sequelize';
+import { raw } from 'body-parser';
 class WidgetService {
     async createWidget(widgetDetails, currentUser) {
 
@@ -469,9 +471,8 @@ class WidgetService {
                     updatedBy: 'system'   // You can adjust this based on your logic
                 });
             }
-
-            return true;
             console.log('ProviderTagMapping saved successfully.');
+            return true;
         } catch (error) {
             console.error('Error saving ProviderTagMapping:', error);
         }
@@ -526,7 +527,7 @@ class WidgetService {
         try {
             // Step 1: Fetch all ProviderTagMapping entries for the given providerId, including the associated Tag
             const mappings = await ProviderTagMapping.findAll({
-                where: { providerId },
+                where: { providerId},
                 include: [
                     {
                         model: Tag,
@@ -539,11 +540,42 @@ class WidgetService {
             const tags = mappings.map(mapping => mapping.Tag.name);
 
             console.log('Tags associated with providerId:', tags);
+            
             return tags;
+            
         } catch (error) {
             console.error('Error fetching tags for providerId:', error);
             return [];
         }
+    }
+
+    async getAllTagsProviderMapping(providerId){
+        const mappings = await ProviderTagMapping.findAll({
+            where: { providerId},
+            raw: true
+        });
+
+        let queryResults = await client.search({
+            query: {
+                match: {
+                    "provider_details.id": providerId,
+                }
+            },
+            size: 1
+        });
+        
+        
+        return mappings.map((map)=>{
+            return {
+                ...map,
+                provider : queryResults.hits.hits[0]._source.provider_details.descriptor,
+                context: queryResults.hits.hits[0]._source.context,
+                bppDetails: queryResults.hits.hits[0]._source.bpp_details
+                
+            }
+        });
+
+
     }
 
 

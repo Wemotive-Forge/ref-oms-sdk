@@ -56,6 +56,9 @@ router.put('/widget/tags/providers/mapping',
 router.get('/widget/tags/providers/:providerId',
     widgetController.getTagsByProviderId);
 
+router.get('/widget/tags/providers/mapping/:providerId',
+        widgetController.getTagsProviderMapping);
+
 
 //upload url
 router.post('/widget/upload/url',

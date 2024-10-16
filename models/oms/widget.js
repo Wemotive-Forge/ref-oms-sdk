@@ -59,8 +59,6 @@ module.exports = (sequelize, DataTypes) => {
 },{
     freezeTableName: true,
     timestamps: true,
-    createdAt: 'createdAt',
-    updatedAt: 'updatedAt',
 });
 
   Widget.associate = function (models) {

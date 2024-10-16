@@ -7,6 +7,8 @@ import bodyParser from 'body-parser';
 import logger from 'morgan';
 //import ondcRoutes from './routes/ondc.routes';
 import Mailer from './lib/mailer';
+import {auth} from "./middlewares/authentication"
+
 import {
     authenticationRoutes,
     issueRoutes,
@@ -60,6 +62,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 
 app.use('/api', authenticationRoutes);
+
+app.use(auth())
+
 app.use('/api', issueRoutes);
 app.use('/api', orderRoutes);
 app.use('/api', returnRoutes);

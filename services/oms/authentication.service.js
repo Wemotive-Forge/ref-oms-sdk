@@ -4,6 +4,7 @@ import BadRequestParameterError from '../../lib/errors/bad-request-parameter.err
 import Mailer from '../../lib/mailer';
 import UnauthenticatedError from "../../lib/errors/unauthenticated.error";
 import MESSAGES from "../../utils/messages";
+import bcryptjs from "bcryptjs"
 const Op = Sequelize.Op;
 const otpGenerator = require('otp-generator')
 class AuthenticationService {
@@ -46,9 +47,11 @@ class AuthenticationService {
 
             if (user) {
 
-                let OTP = ''
+                let OTP = '123456'
+
+          
                 // if(mobile==='8796105046'){
-                OTP ='123456'
+                OTP = await bcryptjs.hash(OTP,10)
                 // }else{
                 //     OTP = otpGenerator.generate(6, {
                 //         digits: true,
@@ -103,18 +106,21 @@ class AuthenticationService {
                 throw new UnauthenticatedError(MESSAGES.LOGIN_ERROR_USER_ACCOUNT_DEACTIVATED)
             }
 
-            const otpObj = await Otp.findOne({ where: { mobile: mobile || user.mobile } })
-            if (otpObj.otp === otp) {
+            const otpObj = await Otp.findOne({ where: { mobile: mobile || user.mobile }})
+            
+            if (!otpObj) 
+                throw new UnauthenticatedError(MESSAGES.LOGIN_ERROR_USER_SESSION_OVERRIDE)
                 // const user = await User.findOne({
                 //   where: {
                 //     [Op.or]: [{ email }]
                 //   }
                 // });
-                const tokenRes = await this.createAccessToken(user.id)
-                return tokenRes
-            } else {
+            if (!await bcryptjs.compare (otp,otpObj.otp))
                 throw new UnauthenticatedError(MESSAGES.LOGIN_ERROR_USER_SESSION_OVERRIDE)
-            }
+            const tokenRes = await this.createAccessToken(user.id)
+            return tokenRes
+            
+            
         } catch (err) {
             console.log('-------------------------------------', err)
             throw err;

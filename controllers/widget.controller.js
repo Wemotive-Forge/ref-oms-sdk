@@ -183,10 +183,23 @@ class WidgetController {
 
 
     async getTagsByProviderId(req, res, next) {
-        const { providerId } = req.query;
+
+        const { providerId } = req.params;
         try{
             const currentUser = req.user;
             const tags = await widgetService.getTagsByProviderId(providerId, currentUser);
+            return res.send(tags);
+        } catch(error) {
+            next(error);
+        }
+    }
+
+    async getTagsProviderMapping(req, res, next) {
+
+        const { providerId } = req.params;
+        try{
+            const currentUser = req.user;
+            const tags = await widgetService.getAllTagsProviderMapping(providerId, currentUser);
             return res.send(tags);
         } catch(error) {
             next(error);

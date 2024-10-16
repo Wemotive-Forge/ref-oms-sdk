@@ -17,7 +17,7 @@ class OrderService {
       return newOrder;
     } catch (err) {
       if (transaction) await transaction.rollback();
-      throw new Error(err);
+      throw new Error(err, {cause:err});
     }
   };
 

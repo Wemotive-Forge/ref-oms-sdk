@@ -10,7 +10,7 @@ const sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USERNAME, pr
     timezone: '+05:30',
     charset: 'utf8',
     collate: 'utf8_general_ci',
-    logging: true,
+    logging: false,
     pool: {
         "max": parseInt(process.env.DB_POOL_MAX, 10),
         "min": parseInt(process.env.DB_POOL_MIN, 10),
