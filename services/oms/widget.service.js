@@ -276,7 +276,7 @@ class WidgetService {
                 where: {
                     id: { [Op.ne]: existingWidgetTag.id }, // Ensure the ID is different from the existing widget
                     name: widgetTagDetails.name,
-                    pageTitle: widgetTags.pageTitle
+                    pageTitle: widgetTagDetails.pageTitle
                 }
             });
 
