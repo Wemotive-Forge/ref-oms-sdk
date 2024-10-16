@@ -40,7 +40,7 @@ Object.keys(db).forEach(modelName => {
 
 
 sequelize
-    .sync({alter: false})
+    .sync({alter: true})
     .then(() => console.log('Completed!'))
 
 

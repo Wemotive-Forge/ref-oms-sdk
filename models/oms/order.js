@@ -39,8 +39,8 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING,
         },
         state: {
-            type: DataTypes.ENUM,
-            values: ['Completed', 'Accepted', 'Cancelled', 'In-progress','Created'],
+            type: DataTypes.STRING,
+            // values: ['Completed', 'Accepted', 'Cancelled', 'In-progress','Created'],
             allowNull: false,
         },
         city: {

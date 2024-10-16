@@ -71,6 +71,12 @@ class WidgetService {
                     section: widgetDetailsSection.section,
                     name:widgetDetailsSection.name,
                     maxItems:widgetDetailsSection.maxItems,
+                    alignTitle: widgetDetailsSection.alignTitle,
+                    left:widgetDetailsSection.left,
+                    backgroundColor:widgetDetailsSection.backgroundColor,
+                    typeOfSection:widgetDetailsSection.typeOfSection,
+                    imageHeight:widgetDetailsSection.imageHeight,
+                    imageWidth:widgetDetailsSection.imageWidth
                 };
 
                 // Save the widget section
@@ -191,6 +197,12 @@ class WidgetService {
                 section: widgetSectionDetails.section,
                 name:widgetSectionDetails.name,
                 maxItems:widgetSectionDetails.maxItems,
+                alignTitle: widgetSectionDetails.alignTitle,
+                left:widgetSectionDetails.left,
+                backgroundColor:widgetSectionDetails.backgroundColor,
+                typeOfSection:widgetSectionDetails.typeOfSection,
+                imageHeight:widgetSectionDetails.imageHeight,
+                imageWidth:widgetSectionDetails.imageWidth
             };
 
             // Update the widget
