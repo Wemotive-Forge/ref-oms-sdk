@@ -550,6 +550,7 @@ class WidgetService {
     }
 
     async getAllTagsProviderMapping(tagId){
+        console.log("tagid---->",tagId)
         const tags = await ProviderTagMapping.findAll({
             where: { TagId : tagId },
             raw: true,
@@ -558,22 +559,38 @@ class WidgetService {
         const providerId = tags.map(tag => tag.providerId)
 
         let queryResults = await client.search({
+            index:'locations',
+            size: 1000,
             query: {
-                terms: {
-                    "provider_details.id": providerId,
-                },
+                bool: {
+                    must: [
+                        {
+                            terms: {
+                                "provider_details.id": providerId // providerId should be an array
+                            }
+                        },
+                        {
+                            match: {
+                                "language": 'en'
+                            }
+                        }
+                    ]
+                }
             },
             collapse: {
-                field: "provider_details.id" 
+                field: "provider_details.id"
             }
         });
-        
+
+
         return tags.map((map,index)=>{
+            console.log("map-->",queryResults.hits.hits[index])
+
             return {
                 ...map,
-                provider : queryResults.hits.hits[index]._source.provider_details.descriptor,
-                context: queryResults.hits.hits[index]._source.context,
-                bppDetails: queryResults.hits.hits[index]._source.bpp_details
+                provider : queryResults.hits.hits[index]?._source.provider_details.descriptor,
+                context: queryResults.hits.hits[index]?._source.context,
+                bppDetails: queryResults.hits.hits[index]?._source.bpp_details
                 
             }
         });
