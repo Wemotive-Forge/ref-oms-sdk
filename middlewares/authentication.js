@@ -5,7 +5,7 @@ import MESSAGES from '../utils/messages';
 
 passport.use(passportJwtStrategy);
 
-export const middleware =
+export const auth =
     ({ensureSameOrg} = {}) =>
         (req, res, next) => {
             // ensureSameOrg ensures either the admin is a superuser (i.e.

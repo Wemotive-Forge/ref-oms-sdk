@@ -15,8 +15,10 @@ class OndcUserService {
       console.log(userData)
 
       const { uid, email, displayName, phoneNumber } = userData.user;
-      const { refId } = userData.address;
+      const providedAddress  = userData.address;
     
+      
+
       // Find or create the user by UID
       let user = await OndcUser.findOne({ where: { uid } });
     
@@ -24,23 +26,26 @@ class OndcUserService {
         user = await OndcUser.create({ uid, email, displayName, phoneNumber });
       }
     
-      // Check if the address already exists by refId
-      let address = null;
-      if (refId) {
-        address = await Address.findOne({ where: { refId, userId: uid } });
+      if (providedAddress){
+        // Check if the address already exists by refId
+        let address = null;
+        if (providedAddress.refId) {
+          address = await Address.findOne({ where: { refId: providedAddress.refId, userId: uid } });
+        }
+      
+        if (address) {
+          // Update the existing address
+          await address.update(userData.address);
+        } else {
+          // Create a new address
+          userData.address.userId = uid; // Set the userId to match the user UID
+          await Address.create(userData.address);
+        }
       }
-    
-      if (address) {
-        // Update the existing address
-        await address.update(userData.address);
-      } else {
-        // Create a new address
-        userData.address.userId = uid; // Set the userId to match the user UID
-        await Address.create(userData.address);
-      }
+      
     } catch (err) {
       if (transaction) await transaction.rollback();
-      throw new Error(err);
+      throw new Error(err, { cause: err });
     }
   };
 
@@ -83,7 +88,7 @@ class OndcUserService {
       });
       return ondcUsers;
     } catch (err) {
-      throw new Error(err);
+      throw new Error(err, { cause: err });
     }
   };
 
@@ -129,7 +134,7 @@ class OndcUserService {
       });
       return ondcUsers;
     } catch (err) {
-      throw new Error(err);
+      throw new Error(err, { cause: err });
     }
   };
 
@@ -142,7 +147,7 @@ class OndcUserService {
       });
       return ondcUser;
     } catch (err) {
-      throw new Error(err);
+      throw new Error(err, { cause: err });
     }
   };
   async exportToExcel(filePath, startTime, endTime) {
@@ -210,7 +215,7 @@ class OndcUserService {
       console.log(`Excel file saved to ${filePath}`);
     } catch (err) {
       if (transaction) await transaction.rollback();
-      throw new Error(err);
+      throw new Error(err, { cause: err });
     }
   };
 
