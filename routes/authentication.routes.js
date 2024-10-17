@@ -9,7 +9,7 @@ passport.use(passportUsernameLocalStrategy);
 
 // router.post('/login', passport.authenticate('local', { session: false }), authenticationController.login);
 
-router.post('/login', authenticationController.loginWithOTP);
+router.post('/login', authenticationController.verifyOTP);
 
 router.post('/verify-otp', authenticationController.verifyOTP);
 router.post('/loadData', authenticationController.dumpData);
