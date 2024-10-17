@@ -1605,6 +1605,7 @@ class SearchService {
 
       locationProviderFlags.aggregations.unique_providers_location.buckets.forEach(bucket => {
           bucket["locations"].buckets.forEach((locationBucket)=>{
+          
           const topHit = locationBucket.top_hits.hits.hits[0]._source;
           response.push ({
             provider_details: topHit.provider_details,
@@ -1619,7 +1620,9 @@ class SearchService {
             location: topHit.location_details.address.locality,
             flag: topHit.provider_flag || false,
             manual_flag : topHit.manual_provider_flag || false,
-            auto_flag : topHit.auto_provider_flag || false
+            auto_flag : topHit.auto_provider_flag || false,
+            context: topHit.context,
+            bpp_details: topHit.bpp_details
           })
 
           if (bucket["products_without_locations_id"].doc_count > 0){
@@ -1638,6 +1641,8 @@ class SearchService {
               flag: topHit.provider_flag || false,
               auto_flag : topHit.auto_provider_flag || false,
               manual_flag : topHit.manual_provider_flag || false,
+              context: topHit.context,
+              bpp_details: topHit.bpp_details
             })
           }
          
