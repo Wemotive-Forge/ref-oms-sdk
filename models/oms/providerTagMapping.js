@@ -8,6 +8,7 @@ module.exports = (sequelize, DataTypes) => {
   },
   providerId:{
       type: DataTypes.STRING,
+      unique: true,
   },
   createdBy: {
     type: DataTypes.STRING,
