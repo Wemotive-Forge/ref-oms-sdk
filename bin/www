@@ -19,7 +19,7 @@ var bootstrapData = require('../lib/bootstrap').default;
  * Get port from environment and store in Express.
  */
 
-var port = normalizePort("4000");
+var port = normalizePort(process.env.EXPRESS_PORT);
 app.set('port', port);
 
 /**

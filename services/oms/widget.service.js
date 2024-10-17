@@ -549,31 +549,28 @@ class WidgetService {
         }
     }
 
-    async getAllTagsProviderMapping(tagId){
-        const tags = await ProviderTagMapping.findAll({
-            where: { TagId : tagId },
-            raw: true,
+    async getAllTagsProviderMapping(providerId){
+        const mappings = await ProviderTagMapping.findAll({
+            where: { providerId},
+            raw: true
         });
-
-        const providerId = tags.map(tag => tag.providerId)
 
         let queryResults = await client.search({
             query: {
-                terms: {
+                match: {
                     "provider_details.id": providerId,
-                },
+                }
             },
-            collapse: {
-                field: "provider_details.id" 
-            }
+            size: 1
         });
         
-        return tags.map((map,index)=>{
+        
+        return mappings.map((map)=>{
             return {
                 ...map,
-                provider : queryResults.hits.hits[index]._source.provider_details.descriptor,
-                context: queryResults.hits.hits[index]._source.context,
-                bppDetails: queryResults.hits.hits[index]._source.bpp_details
+                provider : queryResults.hits.hits[0]._source.provider_details.descriptor,
+                context: queryResults.hits.hits[0]._source.context,
+                bppDetails: queryResults.hits.hits[0]._source.bpp_details
                 
             }
         });
