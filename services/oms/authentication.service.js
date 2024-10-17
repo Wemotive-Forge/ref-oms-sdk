@@ -453,7 +453,7 @@ class AuthenticationService {
         };
 
         // create token instance with payload and expiry
-        const token = new Token(tokenPayload, parseInt(process.env.JWT_TOKEN_EXPIRY_IN_SEC, 10));
+        const token = new Token(tokenPayload);
         // create JWT instance by giving secret or key
         const jwt = new JsonWebToken({secret: process.env.JWT_TOKEN_SECRET});
         // sign token using JWT secret key
