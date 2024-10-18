@@ -17,7 +17,12 @@ const sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USERNAME, pr
         "acquire": parseInt(process.env.DB_POOL_ACQUIRE, 10),
         "idle": parseInt(process.env.DB_POOL_IDLE, 10),
     },
-
+    dialectOptions: {
+        ssl: {
+            require: true,
+            rejectUnauthorized: false // <<<<<<< YOU NEED THIS
+        }
+    }
 });
 
 let db = {}
