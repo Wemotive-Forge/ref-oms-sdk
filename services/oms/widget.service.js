@@ -500,6 +500,8 @@ class WidgetService {
                 await rabitmqService.pushRabbitMQ(JSON.stringify({"request_type": "search-tags-update", "provider_id": providerId, "provider_search_tags": tags}) )
             }
 
+            this.pushUpdatedTagsToCatalog(data,currentUser)
+
             console.log('ProviderTagMapping pushed successfully.');
             return true;
         } catch (error) {
