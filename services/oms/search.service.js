@@ -1596,8 +1596,6 @@ class SearchService {
         }
       });
 
-      console.log(JSON.stringify(locationProviderFlags))
-
       if (locationProviderFlags.aggregations.unique_providers_location.buckets.length === 0)
         return
 
@@ -1656,6 +1654,202 @@ class SearchService {
           data: response,
           pages: Math.ceil(locationProviderFlags.aggregations.total_providers.value / size), 
           afterKey : locationProviderFlags.aggregations.unique_providers_location.after_key.provider_id,
+        },
+      };
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  async listProvidersWithoutPagination(searchRequest = {}, targetLanguage = "en") {
+    try {
+      let matchQuery = [];
+
+      // Filter by target language
+      matchQuery.push({
+        match: {
+          language: targetLanguage,
+        },
+      });
+
+      // Add search filters based on provided searchRequest
+      if (searchRequest.name) {
+        matchQuery.push({
+          match: {
+            "item_details.descriptor.name": searchRequest.name,
+          },
+        });
+      }
+
+      if (searchRequest.providerIds) {
+        matchQuery.push({
+          match: {
+            "provider_details.id": searchRequest.providerIds,
+          },
+        });
+      }
+
+      if (searchRequest.categoryIds) {
+        matchQuery.push({
+          match: {
+            "item_details.category_id": searchRequest.categoryIds,
+          },
+        });
+      }
+
+      if (searchRequest.autoFlag){
+        matchQuery.push({
+          match: {
+            "auto_provider_flag": searchRequest.autoFlag,
+          },
+        });
+      }
+
+      if (searchRequest.manualFlag){
+        matchQuery.push({
+          match: {
+            "manual_provider_flag": searchRequest.manualFlag,
+          },
+        });
+      }
+
+      if (searchRequest.bpp_id) {
+        matchQuery.push({
+          match: {
+            "context.bpp_id": searchRequest.bpp_id,
+          },
+        });
+      }
+
+      if (searchRequest.city) {
+        matchQuery.push({
+          match: {
+            "context.city": searchRequest.city,
+          },
+        });
+      }
+
+      if (searchRequest.domain) {
+        matchQuery.push({
+          match: {
+            "context.domain": searchRequest.domain,
+          },
+        });
+      }
+
+      if (searchRequest.location_id) {
+        matchQuery.push({
+          match: {
+            "location_details.id": searchRequest.location_id,
+          },
+        });
+      }
+
+      // Add flag filter
+      if (searchRequest.flag) {
+        matchQuery.push({
+          match: {
+            provider_flag: searchRequest.flag,
+          },
+        });
+      }
+
+      // Construct the query object
+      let query_obj = {
+        bool: {
+          must: matchQuery,
+        },
+      };
+
+      // Perform the search with pagination and aggregations
+      const locationProviderFlags = await client.search({
+        index: "items",
+        size: 0,
+        query: query_obj,
+        aggs: {
+          total_providers: {
+            cardinality: {
+              field: "provider_details.id"
+            }
+          },
+          unique_providers_location: {
+            terms: { field: "provider_details.id", size: 10000 }, // Max size for terms aggregation
+            aggs: {
+              locations: {
+                terms: { field: "location_details.id", size: 10000 }, // Increase size for terms
+                aggs: {
+                  flagged_count: { filter: { term: { item_flag: true } } },
+                  top_hits: { top_hits: { size: 1 } }, // Get top hit for additional details
+                }
+              },
+              products_without_locations_id: {
+                missing: { field: "location_details.id" },
+                aggs: {
+                  flagged_count: { filter: { term: { item_flag: true } } },
+                  top_hits: { top_hits: { size: 1 } } // Get top hit for additional details
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (locationProviderFlags.aggregations.unique_providers_location.buckets.length === 0)
+        return
+
+      const response = [];
+
+      locationProviderFlags.aggregations.unique_providers_location.buckets.forEach(bucket => {
+          bucket["locations"].buckets.forEach((locationBucket)=>{
+          
+          if (bucket["products_without_locations_id"].doc_count > 0){
+            const topHit = bucket.products_without_locations_id.top_hits.hits.hits[0]._source;
+            response.push ({
+              provider_details: topHit.provider_details,
+              name: topHit.provider_details.descriptor.name, // BPP ID as name
+              city: topHit.context.city,
+              seller_name:topHit.bpp_details?.name??"",
+              seller_app: topHit.context.bpp_id, // Seller app
+              item_count: bucket.products_without_locations_id.doc_count, // Number of items
+              flagged_item_count: bucket.products_without_locations_id.flagged_count.doc_count ,
+              location_id: "N/A",
+              location_details: "N/A",
+              location: "N/A",
+              flag: topHit.provider_flag || false,
+              auto_flag : topHit.auto_provider_flag || false,
+              manual_flag : topHit.manual_provider_flag || false,
+              context: topHit.context,
+              bpp_details: topHit.bpp_details
+            });
+            return;
+          }
+
+          const topHit = locationBucket.top_hits.hits.hits[0]._source;
+          response.push ({
+            provider_details: topHit.provider_details,
+            name: topHit.provider_details.descriptor.name, // BPP ID as name
+            city: topHit.context.city,
+            seller_name:topHit.bpp_details?.name??"",
+            seller_app: topHit.context.bpp_id, // Seller app
+            item_count: locationBucket.doc_count, // Number of items
+            flagged_item_count: locationBucket.flagged_count.doc_count,
+            location_id: locationBucket.key,
+            location_details: topHit.location_details,
+            location: topHit.location_details.address.locality,
+            flag: topHit.provider_flag || false,
+            manual_flag : topHit.manual_provider_flag || false,
+            auto_flag : topHit.auto_provider_flag || false,
+            context: topHit.context,
+            bpp_details: topHit.bpp_details
+          })         
+        })
+      });
+
+
+      return {
+        response: {
+          count: locationProviderFlags.aggregations.total_providers.value,
+          data: response,
         },
       };
     } catch (err) {

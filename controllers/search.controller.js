@@ -421,6 +421,26 @@ class SearchController {
       });
   }
 
+  listProvidersWithoutPagination(req,res,next){
+    const searchRequest = req.query;
+
+    console.log({ searchRequest });
+    const headers = req.headers;
+
+    let targetlanguage = headers["targetlanguage"];
+
+    searchService
+      .listProvidersWithoutPagination(searchRequest, targetlanguage)
+      .then((response) => {
+        if (!response || response === null)
+          throw new NoRecordFoundError("No result found");
+        else res.json(response);
+      })
+      .catch((err) => {
+        next(err);
+      });
+  }
+
   getUniqueCategory (req, res ,next){
     const searchRequest = req.query;
     console.log("Got GET Unique Categories Request =========>", JSON.stringify(searchRequest));

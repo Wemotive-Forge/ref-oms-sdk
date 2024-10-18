@@ -82,6 +82,8 @@ router.get(
     '/list-providers', searchController.listProviders
 )
 
+router.get('/list-providers-without-pagination', searchController.listProvidersWithoutPagination)
+
 router.get(
     '/list-items', searchController.displayItems
 )
