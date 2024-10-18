@@ -8,6 +8,7 @@ import searchService from './search.service';
 import ondcUserService from './ondcUser.service';
 import offerService from './offer.service'
 import widgetService from './widget.service'
+import rabitmqService from './rabitmq.service'
 
 export {
     authenticationService,
@@ -19,5 +20,6 @@ export {
     searchService,
     ondcUserService,
     offerService,
-    widgetService
+    widgetService,
+    rabitmqService
 }

@@ -4,6 +4,7 @@ import { DuplicateRecordFoundError } from '../../lib/errors/errors';
 import client from "../../database/elasticSearch.js";
 import { Op } from 'sequelize';
 import { raw } from 'body-parser';
+import {rabitmqService} from "./index";
 class WidgetService {
     async createWidget(widgetDetails, currentUser) {
 
@@ -464,17 +465,45 @@ class WidgetService {
             const { TagId, providerIds } = data;
 
             for (const providerId of providerIds) {
-                await ProviderTagMapping.create({
-                    providerId,
-                    TagId,
-                    createdBy: 'system',  // You can adjust this based on your logic
-                    updatedBy: 'system'   // You can adjust this based on your logic
-                });
+                try {
+                    await ProviderTagMapping.create({
+                        providerId,
+                        TagId,
+                        createdBy: 'system',  // You can adjust this based on your logic
+                        updatedBy: 'system'   // You can adjust this based on your logic
+                    });
+                }catch (e){
+                    console.log(`${e}`);
+                }
             }
+
+            this.pushUpdatedTagsToCatalog(data,currentUser)
             console.log('ProviderTagMapping saved successfully.');
             return true;
         } catch (error) {
             console.error('Error saving ProviderTagMapping:', error);
+        }
+    }
+
+    async pushUpdatedTagsToCatalog(data,currentUser) {
+        try {
+            const { TagId, providerIds } = data;
+
+            for (const providerId of providerIds) {
+               let providerids =   await ProviderTagMapping.findAll({where:{
+                    providerId,
+                },include:[{model:Tag}]});
+
+               console.log(JSON.stringify(providerids, null, 2));
+                const tags = providerids.map(obj => obj.Tag.name);
+
+                await rabitmqService.pushRabbitMQ(JSON.stringify({"request_type": "search-tags-update", "provider_id": providerId, "provider_search_tags": tags}) )
+            }
+
+            console.log('ProviderTagMapping pushed successfully.');
+            return true;
+        } catch (error) {
+            console.error('Error push ProviderTagMapping:', error);
         }
     }
 
