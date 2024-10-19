@@ -250,6 +250,8 @@ class OfferService {
             console.log("initiate release lock")
             await this.releaseLock(userId, offerId);
         },  5*10 * 1000);
+
+        return offer;
     }
 
     async releaseLock(userId, offerId) {

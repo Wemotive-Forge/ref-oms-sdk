@@ -33,6 +33,7 @@ class OfferController {
     async applyOffer(req, res, next) {
         try {
             const currentUser = req.user;
+            console.log("req.body--->",req.body);
             const offers = await offerService.applyOffer(req.body.userId,req.body.offerId,1);
             return res.json(offers);
         } catch (error) {
