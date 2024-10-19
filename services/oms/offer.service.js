@@ -226,7 +226,7 @@ class OfferService {
     async applyOffer(userId, offerId, quantity) {
         const offer = await Offer.findOne({ where: { id: offerId } });
         if (offer.totalQty < quantity) {
-            throw new Error('Not enough quantity available');
+           return false;
         }
 
         // Lock the offer
@@ -251,14 +251,11 @@ class OfferService {
             await this.releaseLock(userId, offerId);
         },  5*10 * 1000);
 
-        return offer;
+        return true;
     }
 
     async releaseLock(userId, offerId) {
         const lock = await OfferLock.findOne({ where: { userId, offerId } });
-        console.log("lock--->",lock)
-        console.log("lock--->",lock.expiresAt)
-        console.log("lock---new Date() >",new Date() )
         // if (lock && new Date() > lock.expiresAt) {
             console.log("doing reversal")
             // Lock expired, restore the count
