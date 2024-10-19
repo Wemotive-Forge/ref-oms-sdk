@@ -581,6 +581,32 @@ class WidgetService {
         }
     }
 
+    async getTagsProviderMappingAll(providerId,currentUser) {
+        try {
+            // Step 1: Fetch all ProviderTagMapping entries for the given providerId, including the associated Tag
+            const mappings = await ProviderTagMapping.findAll({
+                where: { providerId},
+                include: [
+                    {
+                        model: Tag,
+                        attributes: [ 'name']  // Specify the attributes you want from the Tag model
+                    }
+                ]
+            });
+
+            // Step 2: Extract the tag details from the mappings
+            const tags = mappings.map(mapping => mapping.Tag.name);
+
+            console.log('Tags associated with providerId:', tags);
+
+            return tags;
+
+        } catch (error) {
+            console.error('Error fetching tags for providerId:', error);
+            return [];
+        }
+    }
+
     async getAllTagsProviderMapping(tagId){
         console.log("tagid---->",tagId)
         const tags = await ProviderTagMapping.findAll({

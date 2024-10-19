@@ -1,60 +1,61 @@
 import {Router} from 'express';
 
 import SearchController from '../controllers/search.controller.js';
+import {auth} from "../middlewares/authentication";
 
 const router = new Router();
 const searchController = new SearchController();
 
 // search
 router.get(
-    '/search',  searchController.search,
+    '/search',auth(),  searchController.search,
 );
 
 // search
 router.get(
-    '/search/global/items',  searchController.globalSearchItems,
+    '/search/global/items',auth(),  searchController.globalSearchItems,
 );
 
 // get item details
 router.get(
-    '/provider-details',searchController.getProvideDetails,
+    '/provider-details',auth(),searchController.getProvideDetails,
 );
 // get item details
 router.get(
-    '/location-details',searchController.getLocationDetails,
+    '/location-details',auth(),searchController.getLocationDetails,
 );
 
 // get item details
 router.get(
-    '/item-details',searchController.getItemDetails,
+    '/item-details',auth(),searchController.getItemDetails,
 );
 
 router.get(
-    '/attributes',  searchController.getAttributes,
+    '/attributes',auth(),  searchController.getAttributes,
 );
 
 router.get(
-    '/locations',  searchController.getLocations,
+    '/locations',auth(),  searchController.getLocations,
 );
 
 // get item attributes values
 router.get(
-    '/attributeValues',  searchController.getAttributesValues,
+    '/attributeValues',auth(),  searchController.getAttributesValues,
 );
 
 // get providers
 router.get(
-    '/providers',  searchController.getProviders,
+    '/providers',auth(),  searchController.getProviders,
 );
 
 // get providers
 router.get(
-    '/search/global/providers',  searchController.getGlobalProviders,
+    '/search/global/providers',auth(),  searchController.getGlobalProviders,
 );
 
 // get custom menus
 router.get(
-    '/custom-menus',  searchController.getCustomMenu,
+    '/custom-menus',auth(),  searchController.getCustomMenu,
 );
 
 // // get offers
@@ -63,44 +64,44 @@ router.get(
 // );
 
 router.get(
-    '/list-sellers', searchController.getSellerDetails
+    '/list-sellers',auth(), searchController.getSellerDetails
 );
 
 router.get(
-    '/flag', searchController.getFlag
+    '/flag',auth(), searchController.getFlag
 );
 
 router.get(
-    '/list-unique-cities', searchController.getUniqueCity
+    '/list-unique-cities',auth(), searchController.getUniqueCity
 )
 
 router.put(
-    '/flag', searchController.updateFlag
+    '/flag',auth(), searchController.updateFlag
 );
 
 router.get(
-    '/list-providers', searchController.listProviders
+    '/list-providers',auth(), searchController.listProviders
 )
 
-router.get('/list-providers-without-pagination', searchController.listProvidersWithoutPagination)
+router.get('/list-providers-without-pagination',auth(), searchController.listProvidersWithoutPagination)
 
 router.get(
-    '/list-items', searchController.displayItems
-)
-
-router.get(
-    '/seller-ids', searchController.getSellerIds
+    '/list-items',auth(), searchController.displayItems
 )
 
 router.get(
-    '/list-unique-category', searchController.getUniqueCategory
+    '/seller-ids',auth(), searchController.getSellerIds
 )
 
 router.get(
-    '/provider-ids', searchController.getProviderIds
+    '/list-unique-category',auth(), searchController.getUniqueCategory
 )
 
 router.get(
-    '/location-ids', searchController.getLocationIds
+    '/provider-ids',auth(), searchController.getProviderIds
+)
+
+router.get(
+    '/location-ids',auth(), searchController.getLocationIds
 )
 export default router;

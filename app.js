@@ -63,16 +63,16 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/api', authenticationRoutes);
 
-app.use(auth())
+// app.use(auth())
 
 app.use('/api', issueRoutes);
 app.use('/api', orderRoutes);
 app.use('/api', returnRoutes);
-app.use('/api', sellerRoutes);
-app.use('/api', settlementRoutes);
+app.use('/api',sellerRoutes);
+app.use('/api',settlementRoutes);
 app.use('/api', searchRoutes);
 app.use('/api', ondcUserRoutes);
-app.use('/api', offerRoutes);
+app.use('/api',offerRoutes);
 app.use('/api', widgetRoutes);
 app.disable('etag');
 

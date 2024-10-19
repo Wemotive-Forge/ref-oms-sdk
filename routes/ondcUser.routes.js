@@ -2,12 +2,13 @@
 import {Router} from 'express';
 const router = new Router();
 import {ondcUserController} from '../controllers';
+import {auth} from "../middlewares/authentication";
 
 
-router.post('/ondcUsers', ondcUserController.createOndcUser);
-router.get('/ondcUsers', ondcUserController.getAllOndcUsers);
-router.get('/ondcUsers/address', ondcUserController.getAllAddress);
-router.get('/ondcUsers/:id', ondcUserController.getOndcUserById);
+router.post('/ondcUsers', auth(),ondcUserController.createOndcUser);
+router.get('/ondcUsers', auth(),ondcUserController.getAllOndcUsers);
+router.get('/ondcUsers/address',auth(), ondcUserController.getAllAddress);
+router.get('/ondcUsers/:id',auth(), ondcUserController.getOndcUserById);
 //router.get('/ondcUsers/download/xlsx', ondcUserController.exportToExcel);
 
 
