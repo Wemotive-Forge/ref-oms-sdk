@@ -21,5 +21,9 @@ router.put('/offers/:offerId',auth(),
     offerController.updateOffer);
 
 router.get('/offers/user/:userId',auth(),
-    offerController.getOffersForUser);    
+    offerController.getOffersForUser);
+
+router.post('/offers/user/apply',auth(),
+    offerController.applyOffer);
+
 export default router;

@@ -30,6 +30,15 @@ class OfferController {
             next(error);
         }
     }
+    async applyOffer(req, res, next) {
+        try {
+            const currentUser = req.user;
+            const offers = await offerService.applyOffer(req.body.userId,req.body.offerId,1);
+            return res.json(offers);
+        } catch (error) {
+            next(error);
+        }
+    }
 
     async updateOffer(req, res, next) {
         try {

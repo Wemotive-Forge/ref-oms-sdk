@@ -1,4 +1,4 @@
-import { Offer, OfferQualifier, OfferBenefit ,UserOfferUsage} from '../../models';
+import { Offer, OfferQualifier, OfferBenefit ,UserOfferUsage,OfferLock,sequelize} from '../../models';
 import MESSAGES from '../../utils/messages';
 import { DuplicateRecordFoundError } from '../../lib/errors/errors';
 import { Op } from 'sequelize';
@@ -221,6 +221,53 @@ class OfferService {
         } catch (err) {
             throw err;
         }
+    }
+
+    async applyOffer(userId, offerId, quantity) {
+        const offer = await Offer.findOne({ where: { id: offerId } });
+        if (offer.totalQty < quantity) {
+            throw new Error('Not enough quantity available');
+        }
+
+        // Lock the offer
+        const lockExpiration = new Date();
+        lockExpiration.setMinutes(lockExpiration.getMinutes() + 5);
+
+        await sequelize.transaction(async (t) => {
+            await OfferLock.create({
+                offerId,
+                userId,
+                quantity,
+                expiresAt: lockExpiration,
+            }, { transaction: t });
+
+            // Decrement the totalQty in Offer
+            await offer.update({ totalQty: offer.totalQty - quantity }, { transaction: t });
+        });
+
+        // Set a timer to release the lock after 30 minutes
+        setTimeout(async () => {
+            console.log("initiate release lock")
+            await this.releaseLock(userId, offerId);
+        },  5*10 * 1000);
+    }
+
+    async releaseLock(userId, offerId) {
+        const lock = await OfferLock.findOne({ where: { userId, offerId } });
+        console.log("lock--->",lock)
+        console.log("lock--->",lock.expiresAt)
+        console.log("lock---new Date() >",new Date() )
+        // if (lock && new Date() > lock.expiresAt) {
+            console.log("doing reversal")
+            // Lock expired, restore the count
+            await sequelize.transaction(async (t) => {
+                const offer = await Offer.findOne({ where: { id: offerId }, transaction: t });
+                await offer.update({ totalQty: offer.totalQty + lock.quantity }, { transaction: t });
+
+                // Remove the expired lock
+                await lock.destroy({ transaction: t });
+            });
+        // }
     }
 
     async getOffersForUser( data) {
