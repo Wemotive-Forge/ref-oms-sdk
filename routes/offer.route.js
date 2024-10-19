@@ -26,4 +26,7 @@ router.get('/offers/user/:userId',auth(),
 router.post('/offers/user/apply',auth(),
     offerController.applyOffer);
 
+router.post('/offers/user/claimed',auth(),
+    offerController.releaseLock);
+
 export default router;

@@ -41,6 +41,17 @@ class OfferController {
         }
     }
 
+    async releaseLock(req, res, next) {
+        try {
+            const currentUser = req.user;
+            console.log("req.body--->",req.body);
+            const offers = await offerService.releaseLock(req.body.userId,req.body.offerId,req.body.status,req.body.txnId);
+            return res.json(offers);
+        } catch (error) {
+            next(error);
+        }
+    }
+
     async updateOffer(req, res, next) {
         try {
             const currentUser = req.user;

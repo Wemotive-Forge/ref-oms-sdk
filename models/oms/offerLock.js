@@ -23,6 +23,12 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
             defaultValue: DataTypes.NOW,
         },
+        status: {
+            type: DataTypes.STRING,
+        },
+        txnId: {
+            type: DataTypes.STRING,
+        },
         expiresAt: {
             type: DataTypes.DATE,
             allowNull: false,

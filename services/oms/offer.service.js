@@ -239,6 +239,7 @@ class OfferService {
                 userId,
                 quantity,
                 expiresAt: lockExpiration,
+                status:'APPLIED'
             }, { transaction: t });
 
             // Decrement the totalQty in Offer
@@ -248,25 +249,59 @@ class OfferService {
         // Set a timer to release the lock after 30 minutes
         setTimeout(async () => {
             console.log("initiate release lock")
-            await this.releaseLock(userId, offerId);
-        },  5*10 * 1000);
+            await this.releaseLock(userId, offerId,'APPLIED',undefined);
+        },  10*10 * 1000);
 
         return true;
     }
 
-    async releaseLock(userId, offerId) {
-        const lock = await OfferLock.findOne({ where: { userId, offerId } });
-        // if (lock && new Date() > lock.expiresAt) {
+    async releaseLock(userId, offerId,status,txnId=undefined) {
+        console.log("status",status==='APPLIED',status==='CLAIMED',status==='CANCELED');
+        if(status==='APPLIED'){
+            console.log('Apply coupon')
+            const lock = await OfferLock.findOne({ where: { userId, offerId ,status:'APPLIED'} });
+            // if (lock && new Date() > lock.expiresAt) {
             console.log("doing reversal")
             // Lock expired, restore the count
-            await sequelize.transaction(async (t) => {
-                const offer = await Offer.findOne({ where: { id: offerId }, transaction: t });
-                await offer.update({ totalQty: offer.totalQty + lock.quantity }, { transaction: t });
+            if(lock){
+                await sequelize.transaction(async (t) => {
+                    const offer = await Offer.findOne({ where: { id: offerId }, transaction: t });
+                    await offer.update({ totalQty: offer.totalQty + lock.quantity }, { transaction: t });
 
+                    // Remove the expired lock
+                    // await lock.destroy({ transaction: t });
+                });
+            }
+
+        }else if(status==='CLAIMED'){
+            console.log('claim coupon')
+            const offer = await Offer.findOne({ where: { offerId: offerId } });
+            const lock = await OfferLock.findOne({ where: { userId, offerId:offer.id ,status:'APPLIED'} });
+            // Lock CLAIMED
+            if(lock){
+                await sequelize.transaction(async (t) => {
+                    await lock.update({ status:"CLAIMED" ,txnId:txnId},{ transaction: t });
+                });
+            }
+
+        }else if(status==='CANCELED'){
+            const offer = await Offer.findOne({ where: { offerId: offerId } });
+
+            console.log("offer",offer);
+            //ORDERID
+            const lock = await OfferLock.findOne({ where: { userId, offerId:offer.id ,txnId:txnId,status:'CLAIMED'} });
+
+            console.log("lock",lock);
+            // Lock expired, restore the count
+            await sequelize.transaction(async (t) => {
+                const offerUpdate = await Offer.findOne({ where: { id: offer.id }, transaction: t });
+                await offerUpdate.update({ totalQty: offer.totalQty + lock.quantity }, { transaction: t });
+                await lock.update({ status:status ,txnId:txnId},{ transaction: t });
                 // Remove the expired lock
-                await lock.destroy({ transaction: t });
+                // await lock.destroy({ transaction: t });
             });
-        // }
+        }
+
     }
 
     async getOffersForUser( data) {
