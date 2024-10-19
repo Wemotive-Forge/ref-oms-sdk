@@ -225,8 +225,66 @@ class OfferService {
 
     async applyOffer(userId, offerId, quantity) {
         const offer = await Offer.findOne({ where: { id: offerId } });
+        if (!offer) {
+            return false
+        }
+
         if (offer.totalQty < quantity) {
-           return false;
+            return false
+        }
+
+        const offerQualifier = await OfferQualifier.findOne({ where: { OfferId: offer.id } });
+        if (!offerQualifier) {
+            return false
+        }
+
+        // Retrieve previous user usage of the offer
+        const currentDate = new Date();
+        const startDate = new Date();
+
+        // Check usage frequency and adjust startDate accordingly
+        switch (offerQualifier.usageFrequency) {
+            case 'DAY':
+                startDate.setDate(currentDate.getDate() - offerQualifier.usageDurationInDays);
+                break;
+            case 'WEEK':
+                startDate.setDate(currentDate.getDate() - 7 * offerQualifier.usageDurationInDays);
+                break;
+            case 'MONTH':
+                startDate.setMonth(currentDate.getMonth() - offerQualifier.usageDurationInDays);
+                break;
+            default:
+                return false
+        }
+
+        const usageCountTotal = await OfferLock.count({
+            where: {
+                userId,
+                offerId,
+            },
+        });
+
+        if(usageCountTotal>=offerQualifier.maxUsagePerUser){
+            console.log("max usage exhausted")
+            return false
+        }
+
+        // Count the user's previous usage of this offer within the time window
+        const usageCount = await OfferLock.count({
+            where: {
+                userId,
+                offerId,
+                createdAt: {
+                    [Op.between]: [startDate, currentDate],
+                },
+                status:{[Op.in]:['APPLIED','CLAIMED']}
+            },
+        });
+
+        console.log("usageCount",usageCount)
+        console.log("offerQualifier.maxUsagePerUser",offerQualifier.maxUsagePerUser)
+        if (usageCount >= offerQualifier.maxUsagePerUser) {
+            return false
         }
 
         // Lock the offer
@@ -239,7 +297,7 @@ class OfferService {
                 userId,
                 quantity,
                 expiresAt: lockExpiration,
-                status:'APPLIED'
+                status: 'APPLIED'
             }, { transaction: t });
 
             // Decrement the totalQty in Offer
@@ -248,11 +306,10 @@ class OfferService {
 
         // Set a timer to release the lock after 30 minutes
         setTimeout(async () => {
-            console.log("initiate release lock")
-            await this.releaseLock(userId, offerId,'APPLIED',undefined);
-        },  10*10 * 1000);
+            await this.releaseLock(userId, offerId, 'APPLIED', undefined);
+        }, 30 * 60 * 1000);
 
-        return true;
+        return true
     }
 
     async releaseLock(userId, offerId,status,txnId=undefined) {
