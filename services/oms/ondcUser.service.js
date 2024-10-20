@@ -26,7 +26,7 @@ class OndcUserService {
         user = await OndcUser.create({ uid, email, displayName, phoneNumber });
       }
     
-      if (providedAddress){
+      if (providedAddress.refId || userData.address?.country){
         // Check if the address already exists by refId
         let address = null;
         if (providedAddress.refId) {
