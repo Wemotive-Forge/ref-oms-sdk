@@ -412,17 +412,14 @@ class WidgetService {
     }
 
 
-    async getWidgets( data) {
+    async getWidgets(whereCondition,data) {
         try {
 
-            let whereCondition = {}
-            if(data.page){
-                whereCondition.page=data.page
-            }
             const widgets = await Widget.findAndCountAll({
                 where: whereCondition,
                 offset: data.offset,
                 limit: data.limit,
+                like: data.name,
                 order: [['createdAt', 'DESC']],
                 include: [{
                     model: Tag,  // Include the Tag model
