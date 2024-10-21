@@ -1812,8 +1812,6 @@ class SearchService {
         }
       });
 
-      return locationProviderFlags;
-
       if (locationProviderFlags.aggregations.unique_providers_location.buckets.length === 0)
         return
 
