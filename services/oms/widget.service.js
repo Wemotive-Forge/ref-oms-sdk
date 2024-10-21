@@ -184,17 +184,17 @@ class WidgetService {
 
     async updateWidgetSection(id, widgetSectionDetails, currentUser) {
         try {
-            // Check for duplicate widgetId within the same organization
-            let existingWidgetSectionId = await WidgetSection.findOne({
+            // Find existing widget
+            let existingWidgetSection = await WidgetSection.findOne({
                 where: {
-                    id: { [Op.ne]: existingWidgetSection.id }, // Ensure the ID is different from the existing widget
-                    name: widgetSectionDetails.name,
-                }
+                    id, // Use Sequelize's `id` field
+                },
+                raw: true // Equivalent to Mongoose's `.lean()`
             });
 
-            if (existingWidgetSectionId) {
+            if (!existingWidgetSection) {
                 if (existingWidgetSection) {
-                    const error = new Error(MESSAGES.OFFER_SECTION_CODE_EXISTS);
+                    const error = new Error(MESSAGES.OFFER_SECTION_NOT_EXISTS);
                     error.status = 400;  // HTTP 400 Bad Request
                     throw error;
                 }
