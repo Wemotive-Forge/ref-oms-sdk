@@ -419,15 +419,19 @@ class WidgetService {
                 };
             }
 
+            if(data.page){
+                whereCondition.page=data.page
+            }
             //default checks for active
             whereCondition.status = true
 
-            const widgets = await Widget.findAll({
+            const widgets = await Widget.findAndCountAll({
                 where: whereCondition,
                 order: [['createdAt', 'DESC']],
-                raw:true
+                raw:true,
               });
 
+            console.log(widgets);
             return widgets;
         } catch (err) {
             throw err;

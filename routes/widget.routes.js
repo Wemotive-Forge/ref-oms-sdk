@@ -16,6 +16,9 @@ router.delete('/widget/:widgetId',auth(),
 router.get('/widget',auth(),
     widgetController.getWidgets);
 
+router.get('/widget/user/all',auth(),
+    widgetController.getWidgetsForUser);
+
 router.put('/widget/:widgetId',auth(),
     widgetController.updateWidget);
 
