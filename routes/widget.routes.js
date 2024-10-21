@@ -23,16 +23,16 @@ router.post('/widget/upload/url',auth(),
         widgetController.upload);
 
 //sections
-router.post('/widget/section',/* auth(), */
+router.post('/widget/section',auth(),
     widgetController.storeWidgetSection);
 
-router.get('/widget/section/all',/* auth(), */
+router.get('/widget/section/all',auth(),
     widgetController.getWidgetSections);
 
 router.get('/widget/section/:widgetSectionId',auth(),
     widgetController.getWidgetSectionById);
 
-router.put('/widget/section/:widgetSectionId',/* auth(), */
+router.put('/widget/section/:widgetSectionId',auth(),
     widgetController.updateWidgetSection);
 
 //sections
