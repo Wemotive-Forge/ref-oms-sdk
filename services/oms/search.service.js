@@ -1673,10 +1673,26 @@ class SearchService {
       });
 
       // Add search filters based on provided searchRequest
-      if (searchRequest.name) {
+      if (searchRequest.search) {
         matchQuery.push({
           match: {
-            "item_details.descriptor.name": searchRequest.name,
+            "bpp_details.name": searchRequest.search,
+          },
+        });
+      }
+
+      if (searchRequest.bppId){
+        matchQuery.push({
+          match: {
+            "context.bpp_id": searchRequest.bppId,
+          },
+        });
+      }
+
+      if (searchRequest.domain){
+        matchQuery.push({
+          match: {
+            "context.domain": searchRequest.domain,
           },
         });
       }
@@ -1753,6 +1769,8 @@ class SearchService {
           },
         });
       }
+
+
 
       // Construct the query object
       let query_obj = {
@@ -2102,10 +2120,36 @@ class SearchService {
     }
   }
 
-  async getSellerIds(targetLanguage = "en") {
+  async getSellerIds(searchRequest = {},targetLanguage = "en") {
+
+    let matchQuery = [];
+
+    // bhashini translated data
+    matchQuery.push({
+      match: {
+        language: targetLanguage,
+      },
+    });
+
+    if (searchRequest.name){
+      matchQuery.push({
+        match: {
+          "bpp_details.name": searchRequest.name,
+        },
+      });
+    }
+
+    if (searchRequest.bppId){
+      matchQuery.push({
+        match: {
+          "bpp_details.bpp_id": searchRequest.bppId,
+        },
+      });
+    }
+
     const sellerCount = await client.search({
       index: "items",
-      query: { bool: { must: [{ match: { language : targetLanguage }}] } },
+      query: { bool: { must: matchQuery } },
       size: 0,
       aggs: {
         seller_count: {
@@ -2122,7 +2166,7 @@ class SearchService {
 
     const allSellers = await client.search({
       size: 0,
-      query:  { bool: { must: [{ match: { language : targetLanguage }}] } },
+      query:  { bool: { must: matchQuery } },
       aggs: {
         unique_sellers: {
           terms: {

@@ -298,7 +298,7 @@ class SearchController {
     let targetlanguage = headers["targetlanguage"];
 
     searchService
-      .getSellerIds(targetlanguage)
+      .getSellerIds(req.query,targetlanguage)
       .then((response) => {
         if (!response || response === null)
           throw new NoRecordFoundError("No result found");

@@ -14,7 +14,24 @@ class WidgetController {
     async getWidgets(req, res, next) {
         try {
             const currentUser = req.user;
-            const widgets = await widgetService.getWidgets(req.query,currentUser);
+            let data = {};
+            if (req.query.limit){
+                 data.limit = req.query.limit
+                delete req.query.limit;
+            }
+
+            if (req.query.limit){
+                data.offset = req.query.offset;
+                delete req.query.offset;
+            }
+
+            console.log(req.query.name)
+            if (req.query.name){
+                data.name = `%${req.query.name}%`;
+                delete req.query.name;
+            }
+
+            const widgets = await widgetService.getWidgets(req.query,data,currentUser);
             return res.json(widgets);
         } catch (error) {
             next(error);

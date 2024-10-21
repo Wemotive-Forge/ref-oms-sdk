@@ -56,18 +56,7 @@ class WidgetService {
 
         try {
             if (widgetDetailsSection) {
-                // Check for existing widget
-                const existingWidgetSection = await WidgetSection.findOne({
-                    where: {
-                        name: widgetDetailsSection.name,
-                    }
-                });
 
-                if (existingWidgetSection) {
-                    const error = new Error(MESSAGES.OFFER_SECTION_CODE_EXISTS);
-                    error.status = 400;  // HTTP 400 Bad Request
-                    throw error;
-                }
 
                 // Prepare the widget object
                 let widgetSectionObj = {
@@ -206,22 +195,6 @@ class WidgetService {
             if (!existingWidgetSection) {
                 if (existingWidgetSection) {
                     const error = new Error(MESSAGES.OFFER_SECTION_NOT_EXISTS);
-                    error.status = 400;  // HTTP 400 Bad Request
-                    throw error;
-                }
-            }
-
-            // Check for duplicate widgetId within the same organization
-            let existingWidgetSectionId = await WidgetSection.findOne({
-                where: {
-                    id: { [Op.ne]: existingWidgetSection.id }, // Ensure the ID is different from the existing widget
-                    name: widgetSectionDetails.name,
-                }
-            });
-
-            if (existingWidgetSectionId) {
-                if (existingWidgetSection) {
-                    const error = new Error(MESSAGES.OFFER_SECTION_CODE_EXISTS);
                     error.status = 400;  // HTTP 400 Bad Request
                     throw error;
                 }
@@ -412,17 +385,14 @@ class WidgetService {
     }
 
 
-    async getWidgets( data) {
+    async getWidgets(whereCondition,data) {
         try {
 
-            let whereCondition = {}
-            if(data.page){
-                whereCondition.page=data.page
-            }
             const widgets = await Widget.findAndCountAll({
                 where: whereCondition,
                 offset: data.offset,
                 limit: data.limit,
+                like: data.name,
                 order: [['createdAt', 'DESC']],
                 include: [{
                     model: Tag,  // Include the Tag model
