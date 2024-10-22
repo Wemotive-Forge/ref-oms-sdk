@@ -303,8 +303,32 @@ class WidgetService {
                 error.status = 400;  // HTTP 400 Bad Request
                 throw error;
             }
-            let jsonObject = widget.toJSON()
 
+            console.log(widget.params.providerId)
+
+            let queryResults = await client.search({
+                index:'items',
+                size: 1000,
+                query: {
+                    bool: {
+                        must: [
+                            {
+                                terms: {
+                                    "provider_details.id": [widget.params.providerId] // providerId should be an array
+                                }
+                            },
+                        ]
+                    }
+                },
+                collapse: {
+                    field: "provider_details.id"
+                }
+            });
+            
+
+            
+            let jsonObject = widget.toJSON()
+            jsonObject.provider = queryResults.hits.hits[0]._source.provider_details;
             return jsonObject;
         } catch (err) {
             throw err;
