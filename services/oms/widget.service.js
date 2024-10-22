@@ -303,9 +303,6 @@ class WidgetService {
                 error.status = 400;  // HTTP 400 Bad Request
                 throw error;
             }
-
-            console.log(widget.params.providerId)
-
             let queryResults = await client.search({
                 index:'items',
                 size: 1000,
@@ -329,6 +326,8 @@ class WidgetService {
             
             let jsonObject = widget.toJSON()
             jsonObject.provider = queryResults.hits.hits[0]._source.provider_details;
+            jsonObject.bppDetails = queryResults.hits.hits[0]._source.bpp_details;
+            jsonObject.context = queryResults.hits.hits[0]._source.context;
             return jsonObject;
         } catch (err) {
             throw err;
