@@ -66,7 +66,6 @@ router.get('/widget/tags/providers/:providerId',auth(),
 router.get('/widget/tags/providers/mapping/:tagId',auth(),
         widgetController.getTagsProviderMapping);
 
-//upload url
 router.post('/widget/upload/url',auth(),
     widgetController.upload);
 

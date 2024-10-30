@@ -286,6 +286,7 @@ class WidgetService {
 
     async deleteWidget(currentUser, widgetId) {
         try {
+            await Widget.destroy({where:{id:widgetId}});
         } catch (err) {
             console.log(`[WidgetService]  Error - ${currentUser.organization}`, err);
             throw err;
@@ -409,21 +410,19 @@ class WidgetService {
 
 
     async getWidgets(whereCondition,data) {
-        try {
-
+        try { 
             const widgets = await Widget.findAndCountAll({
                 where: whereCondition,
                 offset: data.offset,
                 limit: data.limit,
-                like: data.name,
                 order: [['createdAt', 'DESC']],
                 include: [{
                     model: Tag,  // Include the Tag model
                     as: 'Tag',   // Alias if necessary (optional)
                     attributes: ['id', 'name']  // Only fetch specific attributes of Tag
                 }]
-              });
-              return widgets;
+            });
+            return widgets;
         } catch (err) {
             throw err;
         }

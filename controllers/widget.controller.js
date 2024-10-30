@@ -1,6 +1,17 @@
 import { widgetService } from "../services/oms";
 import getSignedUrlForUpload from '../utils/s3Utils';
+import {Op} from "sequelize"
 class WidgetController {
+    async deleteWidget(req,res,next){
+        try{
+            const widgetId = req.params.widgetId;
+            await widgetService.deleteWidget(widgetId);
+            return res.send();
+        }catch(error){
+
+        }
+    }
+
     async storeWidget(req, res, next) {
         try {
             const data = req.body;
@@ -25,12 +36,10 @@ class WidgetController {
                 delete req.query.offset;
             }
 
-            console.log(req.query.name)
             if (req.query.name){
-                data.name = `%${req.query.name}%`;
-                delete req.query.name;
+                req.query.name = {[Op.like]:`%${req.query.name}%`};                
             }
-
+            
             const widgets = await widgetService.getWidgets(req.query,data,currentUser);
             return res.json(widgets);
         } catch (error) {
