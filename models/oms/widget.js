@@ -57,6 +57,7 @@ module.exports = (sequelize, DataTypes) => {
     type: DataTypes.STRING,
   }
 },{
+    paranoid: true,
     freezeTableName: true,
     timestamps: true,
 });
