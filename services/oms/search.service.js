@@ -1,6 +1,9 @@
 import _ from "lodash";
 import client from "../../database/elasticSearch.js";
 import MappedCity from "../../utils/mappedCityCode.js";
+import {
+  ProviderTagMapping
+} from "../../models";
 
 class SearchService {
   isBppFilterSpecified(context = {}) {
@@ -108,11 +111,11 @@ class SearchService {
     let afterKey;
     let matchQuery = [];
 
-      matchQuery.push({
-        match: {
-          language: targetLanguage,
-        },
-      });
+    matchQuery.push({
+      match: {
+        language: targetLanguage,
+      },
+    });
 
     if (searchRequest.afterKey) {
       afterKey = {
@@ -120,7 +123,7 @@ class SearchService {
       };
     }
 
-    if (searchRequest.autoFlag){
+    if (searchRequest.autoFlag) {
       matchQuery.push({
         match: {
           "auto_seller_flag": searchRequest.autoFlag,
@@ -128,7 +131,7 @@ class SearchService {
       });
     }
 
-    if (searchRequest.manualFlag){
+    if (searchRequest.manualFlag) {
       matchQuery.push({
         match: {
           "manual_seller_flag": searchRequest.manualFlag,
@@ -149,7 +152,7 @@ class SearchService {
       },
     };
 
-    
+
     const allSellers = await client.search({
       index: "items",
       query: query_obj,
@@ -229,7 +232,9 @@ class SearchService {
       },
     });
 
-    const { buckets } = allSellers.aggregations.unique;
+    const {
+      buckets
+    } = allSellers.aggregations.unique;
 
     if (buckets.length === 0)
       return
@@ -353,13 +358,11 @@ class SearchService {
       // Perform the search with pagination parameters
       let queryResults = await client.search({
         query: query_obj,
-        sort: [
-          {
-            _score: {
-              order: "desc",
-            },
+        sort: [{
+          _score: {
+            order: "desc",
           },
-        ],
+        }, ],
         from: from,
         size: size,
       });
@@ -518,8 +521,7 @@ class SearchService {
 
           matchQuery.push({
             match: {
-              "item_details.parent_item_id":
-                item_details.item_details.parent_item_id,
+              "item_details.parent_item_id": item_details.item_details.parent_item_id,
             },
           });
 
@@ -537,12 +539,11 @@ class SearchService {
             },
           });
 
-          matchQuery.push(
-            {
-              match: {
-                language: targetLanguage,
-              },
-            })
+          matchQuery.push({
+            match: {
+              language: targetLanguage,
+            },
+          })
 
           let query_obj = {
             bool: {
@@ -552,7 +553,7 @@ class SearchService {
 
           let queryResults = await client.search({
             query: query_obj,
-            size:100
+            size: 100
           });
 
           item_details.related_items = queryResults.hits.hits.map(
@@ -579,13 +580,12 @@ class SearchService {
             },
           });
 
-          customisationQuery.push(
-            {
-              match: {
-                language: targetLanguage,
-              },
-            });
-            
+          customisationQuery.push({
+            match: {
+              language: targetLanguage,
+            },
+          });
+
           // Create the query object
           let query_obj = {
             bool: {
@@ -670,8 +670,16 @@ class SearchService {
       // Extract the unique keys from the aggregation results
       const uniqueKeys = Array.from(response.aggregations.unique_keys.value);
 
-      const keyObjects = uniqueKeys.map((key) => ({ code: key }));
-      return { response: { data: keyObjects, count: 1, pages: 1 } };
+      const keyObjects = uniqueKeys.map((key) => ({
+        code: key
+      }));
+      return {
+        response: {
+          data: keyObjects,
+          count: 1,
+          pages: 1
+        }
+      };
     } catch (err) {
       throw err;
     }
@@ -722,7 +730,12 @@ class SearchService {
       );
       //    console.log(body.hits.hits); // Print the matching documents
       // Extract and return the hits (documents)
-      return { response: { data: uniqueValues, count: uniqueValues.length } }; //.body.hits.hits;
+      return {
+        response: {
+          data: uniqueValues,
+          count: uniqueValues.length
+        }
+      }; //.body.hits.hits;
     } catch (err) {
       throw err;
     }
@@ -790,12 +803,18 @@ class SearchService {
         unique_location: {
           composite: {
             size: searchRequest.limit,
-            sources: [
-              { location_id: { terms: { field: "location_details.id" } } },
-            ],
-            after: searchRequest.afterKey
-              ? { location_id: searchRequest.afterKey }
-              : undefined,
+            sources: [{
+              location_id: {
+                terms: {
+                  field: "location_details.id"
+                }
+              }
+            }, ],
+            after: searchRequest.afterKey ?
+              {
+                location_id: searchRequest.afterKey
+              } :
+              undefined,
           },
           aggs: {
             products: {
@@ -816,21 +835,19 @@ class SearchService {
       let queryResults = await client.search({
         body: {
           query: query_obj,
-          sort: [
-            {
-              _geo_distance: {
-                "location_details.gps": {
-                  lat: parseFloat(searchRequest.latitude),
-                  lon: parseFloat(searchRequest.longitude),
-                },
-                order: "asc",
-                unit: "km",
-                mode: "min",
-                distance_type: "arc",
-                ignore_unmapped: true,
+          sort: [{
+            _geo_distance: {
+              "location_details.gps": {
+                lat: parseFloat(searchRequest.latitude),
+                lon: parseFloat(searchRequest.longitude),
               },
+              order: "asc",
+              unit: "km",
+              mode: "min",
+              distance_type: "arc",
+              ignore_unmapped: true,
             },
-          ],
+          }, ],
           aggs: aggr_query,
           size: 0,
         },
@@ -878,11 +895,9 @@ class SearchService {
       // Define the query object with additional filters on names
       let query_obj = {
         bool: {
-          must: [
-            {
+          must: [{
               bool: {
-                should: [
-                  {
+                should: [{
                     regexp: {
                       "item_details.descriptor.name": {
                         value: `.*${searchRequest.name}.*`,
@@ -909,8 +924,7 @@ class SearchService {
             },
             {
               bool: {
-                should: [
-                  {
+                should: [{
                     match: {
                       "location_details.type.keyword": "pan",
                     },
@@ -939,12 +953,18 @@ class SearchService {
         unique_providers: {
           composite: {
             size: searchRequest.limit,
-            sources: [
-              { provider_id: { terms: { field: "provider_details.id" } } },
-            ],
-            after: searchRequest.afterKey
-              ? { provider_id: searchRequest.afterKey }
-              : undefined,
+            sources: [{
+              provider_id: {
+                terms: {
+                  field: "provider_details.id"
+                }
+              }
+            }, ],
+            after: searchRequest.afterKey ?
+              {
+                provider_id: searchRequest.afterKey
+              } :
+              undefined,
           },
           aggs: {
             products: {
@@ -1005,7 +1025,7 @@ class SearchService {
       console.log("searchRequest", searchRequest);
       let query_obj = {
         bool: {
-          
+
         },
       };
 
@@ -1013,12 +1033,18 @@ class SearchService {
         unique_providers: {
           composite: {
             size: searchRequest.limit,
-            sources: [
-              { provider_id: { terms: { field: "provider_details.id" } } },
-            ],
-            after: searchRequest.afterKey
-              ? { provider_id: searchRequest.afterKey }
-              : undefined,
+            sources: [{
+              provider_id: {
+                terms: {
+                  field: "provider_details.id"
+                }
+              }
+            }, ],
+            after: searchRequest.afterKey ?
+              {
+                provider_id: searchRequest.afterKey
+              } :
+              undefined,
           },
           aggs: {
             products: {
@@ -1087,13 +1113,11 @@ class SearchService {
       let queryResults = await client.search({
         query: {
           bool: {
-            must: [
-              {
-                term: {
-                  "provider_details.id": searchRequest.provider,
-                },
+            must: [{
+              term: {
+                "provider_details.id": searchRequest.provider,
               },
-            ],
+            }, ],
           },
         },
         aggs: {
@@ -1140,24 +1164,26 @@ class SearchService {
     }
   }
 
-  async getFlag(searchRequest,  targetLanguage = "en") {
+  async getFlag(searchRequest, targetLanguage = "en") {
     let source = [];
     let key;
     switch (searchRequest.type) {
       case "seller":
         key = "context.bpp_id";
-        source.push("seller_error_tags", "seller_flag","manual_seller_flag", "auto_seller_flag");
+        source.push("seller_error_tags", "seller_flag", "manual_seller_flag", "auto_seller_flag");
         break;
       case "item":
         key = "id";
-        source.push("item_error_tags", "item_flag","manual_item_flag", "auto_item_flag");
+        source.push("item_error_tags", "item_flag", "manual_item_flag", "auto_item_flag");
         break;
       case "provider":
         key = "provider_details.id";
-        source.push("provider_error_tags", "provider_flag","manual_provider_flag", "auto_provider_flag");
+        source.push("provider_error_tags", "provider_flag", "manual_provider_flag", "auto_provider_flag");
         break;
       default:
-        return { error: "Type must be from ['item', 'seller', 'provider']" };
+        return {
+          error: "Type must be from ['item', 'seller', 'provider']"
+        };
     }
     let matchQuery = [];
 
@@ -1190,14 +1216,12 @@ class SearchService {
       return null;
     }
     if (searchRequest.type === "seller") {
-      return [
-        {
-          flag: result.hits.hits[0]._source[source[1]] || false,
-          manual_flag: result.hits.hits[0]._source[source[2]]  || false,
-          auto_flag: result.hits.hits[0]._source[source[3]]  || false,
-          error_tag: result.hits.hits[0]._source[source[0]] || [],
-        },
-      ];
+      return [{
+        flag: result.hits.hits[0]._source[source[1]] || false,
+        manual_flag: result.hits.hits[0]._source[source[2]] || false,
+        auto_flag: result.hits.hits[0]._source[source[3]] || false,
+        error_tag: result.hits.hits[0]._source[source[0]] || [],
+      }, ];
     }
 
     return result.hits.hits.map((hit) => {
@@ -1209,11 +1233,19 @@ class SearchService {
   }
 
   async getUniqueCity(targetLanguage = "en") {
-    
+
     const totalCity = await client.search({
       index: "items",
       size: 0,
-      query: { bool: { must: [{ match: { language : targetLanguage }}] } },
+      query: {
+        bool: {
+          must: [{
+            match: {
+              language: targetLanguage
+            }
+          }]
+        }
+      },
       aggs: {
         cityCount: {
           cardinality: {
@@ -1224,7 +1256,7 @@ class SearchService {
     });
 
     if (totalCity.aggregations.cityCount.value === 0)
-      return 
+      return
 
     const getCities = await client.search({
       index: "items",
@@ -1251,7 +1283,9 @@ class SearchService {
 
   async updateFlag(searchRequest, targetLanguage = "en") {
     if (!_.isBoolean(searchRequest.flagged)) {
-      return { error: "Flag can only be boolean type" };
+      return {
+        error: "Flag can only be boolean type"
+      };
     }
 
     let matchQuery = [];
@@ -1262,7 +1296,7 @@ class SearchService {
         language: targetLanguage,
       },
     });
-    
+
 
     let source = `ctx._source.flagged = params.flagged;`;
     let key;
@@ -1288,7 +1322,9 @@ class SearchService {
         source = `ctx._source.provider_flag = params.flagged; ctx._source.provider_error_tags = params.errorTag; ctx._source.manual_provider_flag = params.flagged;`;
         break;
       default:
-        return { error: "Type must be from ['item', 'seller', 'provider']" };
+        return {
+          error: "Type must be from ['item', 'seller', 'provider']"
+        };
     }
 
     matchQuery.push({
@@ -1315,19 +1351,23 @@ class SearchService {
       },
     });
 
-    if (updateResults.total === 0){
-      return { error: "No matching documents found" };
+    if (updateResults.total === 0) {
+      return {
+        error: "No matching documents found"
+      };
     }
 
-    if (updateResults.updated === 0){
-      return { error: "Failed to update the documents" };
+    if (updateResults.updated === 0) {
+      return {
+        error: "Failed to update the documents"
+      };
     }
 
 
 
     const search = await client.search({
       index: "items",
-      _source : ["id", "local_id", "provider_details", "location_details", "bpp_details", manualKey , errorKey],
+      _source: ["id", "local_id", "provider_details", "location_details", "bpp_details", manualKey, errorKey],
       query: query_obj,
     });
 
@@ -1337,24 +1377,27 @@ class SearchService {
       bulkBody.push({
         index: {
           _index: "manually_flagged_items",
-          _id: Date.now(), 
+          _id: Date.now(),
         },
       });
 
       bulkBody.push({
-          id: item._source.id,
-          local_id: item._source.local_id,
-          created_at: new Date().toISOString(),
-          [manualKey]: searchRequest.flagged,
-          provider_details: item._source.provider_details,
-          location_details: item._source.location_details,
-          bpp_details: item._source.bpp_details,
-          [errorKey]: searchRequest.errorTag,
+        id: item._source.id,
+        local_id: item._source.local_id,
+        created_at: new Date().toISOString(),
+        [manualKey]: searchRequest.flagged,
+        provider_details: item._source.provider_details,
+        location_details: item._source.location_details,
+        bpp_details: item._source.bpp_details,
+        [errorKey]: searchRequest.errorTag,
       });
     });
 
-    const result = await client.bulk({ refresh: true, body: bulkBody });
-    if (result.errors){
+    const result = await client.bulk({
+      refresh: true,
+      body: bulkBody
+    });
+    if (result.errors) {
       return _.flatMap(result.items, item => ({
         _id: item.index._id,
         status: item.index.status,
@@ -1485,7 +1528,7 @@ class SearchService {
         });
       }
 
-      if (searchRequest.autoFlag){
+      if (searchRequest.autoFlag) {
         matchQuery.push({
           match: {
             "auto_provider_flag": searchRequest.autoFlag,
@@ -1493,7 +1536,7 @@ class SearchService {
         });
       }
 
-      if (searchRequest.manualFlag){
+      if (searchRequest.manualFlag) {
         matchQuery.push({
           match: {
             "manual_provider_flag": searchRequest.manualFlag,
@@ -1550,44 +1593,74 @@ class SearchService {
       };
 
       // Calculate pagination parameters
-      let size = parseInt(searchRequest.limit);
+      let size = parseInt(searchRequest.limit, 10);
 
 
       // Perform the search with pagination and aggregations
       const locationProviderFlags = await client.search({
         index: "items",
-        size:0,
+        size: 0,
         query: query_obj,
         aggs: {
           total_providers: {
             cardinality: {
-              field : "provider_details.id"
+              field: "provider_details.id"
             }
           },
           unique_providers_location: {
             composite: {
-              sources:  [
-                { provider_id: { terms: { field: "provider_details.id" } } },
-              ],
+              sources: [{
+                provider_id: {
+                  terms: {
+                    field: "provider_details.id"
+                  }
+                }
+              }, ],
               size: size,
-              after: searchRequest.afterKey
-                  ? { provider_id: searchRequest.afterKey }
-                  : undefined,
+              after: searchRequest.afterKey ?
+                {
+                  provider_id: searchRequest.afterKey
+                } :
+                undefined,
             },
-            
+
             aggs: {
-              "locations":{
-                terms: {field: "location_details.id"},
+              "locations": {
+                terms: {
+                  field: "location_details.id"
+                },
                 aggs: {
-                  flagged_count: { filter: { term: { item_flag: true } } },
-                  top_hits: { top_hits: { size: 1 } }, // Get top hit for additional details
+                  flagged_count: {
+                    filter: {
+                      term: {
+                        item_flag: true
+                      }
+                    }
+                  },
+                  top_hits: {
+                    top_hits: {
+                      size: 1
+                    }
+                  }, // Get top hit for additional details
                 }
               },
               "products_without_locations_id": {
-                "missing": { "field": "location_details.id" },
+                "missing": {
+                  "field": "location_details.id"
+                },
                 aggs: {
-                  flagged_count: { filter: { term: { item_flag: true } } },
-                  top_hits: { top_hits: { size: 1 } }, // Get top hit for additional details
+                  flagged_count: {
+                    filter: {
+                      term: {
+                        item_flag: true
+                      }
+                    }
+                  },
+                  top_hits: {
+                    top_hits: {
+                      size: 1
+                    }
+                  }, // Get top hit for additional details
                 }
               },
 
@@ -1601,15 +1674,29 @@ class SearchService {
 
       const response = [];
 
-      locationProviderFlags.aggregations.unique_providers_location.buckets.forEach(bucket => {
-          bucket["locations"].buckets.forEach((locationBucket)=>{
-          
+      for (const bucket of locationProviderFlags.aggregations.unique_providers_location.buckets){
+        for(const locationBucket of bucket["locations"].buckets){
+
           const topHit = locationBucket.top_hits.hits.hits[0]._source;
-          response.push ({
+          let  taggedProvider;
+          if (searchRequest.tagged){
+            taggedProvider = await ProviderTagMapping.findOne({
+              where: {
+                providerId: topHit.provider_details.id
+              }
+            });
+            taggedProvider = taggedProvider ? true : false;
+          }
+
+          
+
+          
+
+          response.push({
             provider_details: topHit.provider_details,
             name: topHit.provider_details.descriptor.name, // BPP ID as name
             city: topHit.context.city,
-            seller_name:topHit.bpp_details?.name??"",
+            seller_name: topHit.bpp_details?.name ?? "",
             seller_app: topHit.context.bpp_id, // Seller app
             item_count: locationBucket.doc_count, // Number of items
             flagged_item_count: locationBucket.flagged_count.doc_count,
@@ -1617,43 +1704,45 @@ class SearchService {
             location_details: topHit.location_details,
             location: topHit.location_details.address.locality,
             flag: topHit.provider_flag || false,
-            manual_flag : topHit.manual_provider_flag || false,
-            auto_flag : topHit.auto_provider_flag || false,
+            manual_flag: topHit.manual_provider_flag || false,
+            auto_flag: topHit.auto_provider_flag || false,
             context: topHit.context,
-            bpp_details: topHit.bpp_details
+            bpp_details: topHit.bpp_details,
+            tagged: taggedProvider
           })
 
-          if (bucket["products_without_locations_id"].doc_count > 0){
+          if (bucket["products_without_locations_id"].doc_count > 0) {
             const topHit = bucket.products_without_locations_id.top_hits.hits.hits[0]._source;
-            response.push ({
+            response.push({
               provider_details: topHit.provider_details,
               name: topHit.provider_details.descriptor.name, // BPP ID as name
               city: topHit.context.city,
-              seller_name:topHit.bpp_details?.name??"",
+              seller_name: topHit.bpp_details?.name ?? "",
               seller_app: topHit.context.bpp_id, // Seller app
               item_count: bucket.products_without_locations_id.doc_count, // Number of items
-              flagged_item_count: bucket.products_without_locations_id.flagged_count.doc_count ,
+              flagged_item_count: bucket.products_without_locations_id.flagged_count.doc_count,
               location_id: "N/A",
               location_details: "N/A",
               location: "N/A",
               flag: topHit.provider_flag || false,
-              auto_flag : topHit.auto_provider_flag || false,
-              manual_flag : topHit.manual_provider_flag || false,
+              auto_flag: topHit.auto_provider_flag || false,
+              manual_flag: topHit.manual_provider_flag || false,
               context: topHit.context,
-              bpp_details: topHit.bpp_details
+              bpp_details: topHit.bpp_details,
+              tagged: taggedProvider
             })
           }
-         
-        })
-      });
+
+        };
+      };
 
 
       return {
         response: {
           count: locationProviderFlags.aggregations.total_providers.value,
           data: response,
-          pages: Math.ceil(locationProviderFlags.aggregations.total_providers.value / size), 
-          afterKey : locationProviderFlags.aggregations.unique_providers_location.after_key.provider_id,
+          pages: Math.ceil(locationProviderFlags.aggregations.total_providers.value / size),
+          afterKey: locationProviderFlags.aggregations.unique_providers_location.after_key.provider_id,
         },
       };
     } catch (err) {
@@ -1681,7 +1770,7 @@ class SearchService {
         });
       }
 
-      if (searchRequest.bppId){
+      if (searchRequest.bppId) {
         matchQuery.push({
           match: {
             "context.bpp_id": searchRequest.bppId,
@@ -1689,7 +1778,7 @@ class SearchService {
         });
       }
 
-      if (searchRequest.domain){
+      if (searchRequest.domain) {
         matchQuery.push({
           match: {
             "context.domain": searchRequest.domain,
@@ -1713,7 +1802,7 @@ class SearchService {
         });
       }
 
-      if (searchRequest.autoFlag){
+      if (searchRequest.autoFlag) {
         matchQuery.push({
           match: {
             "auto_provider_flag": searchRequest.autoFlag,
@@ -1721,7 +1810,7 @@ class SearchService {
         });
       }
 
-      if (searchRequest.manualFlag){
+      if (searchRequest.manualFlag) {
         matchQuery.push({
           match: {
             "manual_provider_flag": searchRequest.manualFlag,
@@ -1791,20 +1880,48 @@ class SearchService {
             }
           },
           unique_providers_location: {
-            terms: { field: "provider_details.id", size: 10000 }, // Max size for terms aggregation
+            terms: {
+              field: "provider_details.id",
+              size: 10000
+            }, // Max size for terms aggregation
             aggs: {
               locations: {
-                terms: { field: "location_details.id", size: 10000 }, // Increase size for terms
+                terms: {
+                  field: "location_details.id",
+                  size: 10000
+                }, // Increase size for terms
                 aggs: {
-                  flagged_count: { filter: { term: { item_flag: true } } },
-                  top_hits: { top_hits: { size: 1 } }, // Get top hit for additional details
+                  flagged_count: {
+                    filter: {
+                      term: {
+                        item_flag: true
+                      }
+                    }
+                  },
+                  top_hits: {
+                    top_hits: {
+                      size: 1
+                    }
+                  }, // Get top hit for additional details
                 }
               },
               products_without_locations_id: {
-                missing: { field: "location_details.id" },
+                missing: {
+                  field: "location_details.id"
+                },
                 aggs: {
-                  flagged_count: { filter: { term: { item_flag: true } } },
-                  top_hits: { top_hits: { size: 1 } } // Get top hit for additional details
+                  flagged_count: {
+                    filter: {
+                      term: {
+                        item_flag: true
+                      }
+                    }
+                  },
+                  top_hits: {
+                    top_hits: {
+                      size: 1
+                    }
+                  } // Get top hit for additional details
                 }
               }
             }
@@ -1818,24 +1935,24 @@ class SearchService {
       const response = [];
 
       locationProviderFlags.aggregations.unique_providers_location.buckets.forEach(bucket => {
-          bucket["locations"].buckets.forEach((locationBucket)=>{
-          
-          if (bucket["products_without_locations_id"].doc_count > 0){
+        bucket["locations"].buckets.forEach((locationBucket) => {
+
+          if (bucket["products_without_locations_id"].doc_count > 0) {
             const topHit = bucket.products_without_locations_id.top_hits.hits.hits[0]._source;
-            response.push ({
+            response.push({
               provider_details: topHit.provider_details,
               name: topHit.provider_details.descriptor.name, // BPP ID as name
               city: topHit.context.city,
-              seller_name:topHit.bpp_details?.name??"",
+              seller_name: topHit.bpp_details?.name ?? "",
               seller_app: topHit.context.bpp_id, // Seller app
               item_count: bucket.products_without_locations_id.doc_count, // Number of items
-              flagged_item_count: bucket.products_without_locations_id.flagged_count.doc_count ,
+              flagged_item_count: bucket.products_without_locations_id.flagged_count.doc_count,
               location_id: "N/A",
               location_details: "N/A",
               location: "N/A",
               flag: topHit.provider_flag || false,
-              auto_flag : topHit.auto_provider_flag || false,
-              manual_flag : topHit.manual_provider_flag || false,
+              auto_flag: topHit.auto_provider_flag || false,
+              manual_flag: topHit.manual_provider_flag || false,
               context: topHit.context,
               bpp_details: topHit.bpp_details
             });
@@ -1843,11 +1960,11 @@ class SearchService {
           }
 
           const topHit = locationBucket.top_hits.hits.hits[0]._source;
-          response.push ({
+          response.push({
             provider_details: topHit.provider_details,
             name: topHit.provider_details.descriptor.name, // BPP ID as name
             city: topHit.context.city,
-            seller_name:topHit.bpp_details?.name??"",
+            seller_name: topHit.bpp_details?.name ?? "",
             seller_app: topHit.context.bpp_id, // Seller app
             item_count: locationBucket.doc_count, // Number of items
             flagged_item_count: locationBucket.flagged_count.doc_count,
@@ -1855,11 +1972,11 @@ class SearchService {
             location_details: topHit.location_details,
             location: topHit.location_details.address.locality,
             flag: topHit.provider_flag || false,
-            manual_flag : topHit.manual_provider_flag || false,
-            auto_flag : topHit.auto_provider_flag || false,
+            manual_flag: topHit.manual_provider_flag || false,
+            auto_flag: topHit.auto_provider_flag || false,
             context: topHit.context,
             bpp_details: topHit.bpp_details
-          })         
+          })
         })
       });
 
@@ -1895,7 +2012,7 @@ class SearchService {
         });
       }
 
-      if (searchRequest.autoFlag){
+      if (searchRequest.autoFlag) {
         matchQuery.push({
           match: {
             "auto_item_flag": searchRequest.autoFlag,
@@ -1903,7 +2020,7 @@ class SearchService {
         });
       }
 
-      if (searchRequest.manualFlag){
+      if (searchRequest.manualFlag) {
         matchQuery.push({
           match: {
             "manual_item_flag": searchRequest.manualFlag,
@@ -1959,7 +2076,7 @@ class SearchService {
         });
       }
 
-      
+
 
       if (searchRequest.bpp_id) {
         matchQuery.push({
@@ -2120,7 +2237,7 @@ class SearchService {
     }
   }
 
-  async getSellerIds(searchRequest = {},targetLanguage = "en") {
+  async getSellerIds(searchRequest = {}, targetLanguage = "en") {
 
     let matchQuery = [];
 
@@ -2131,7 +2248,7 @@ class SearchService {
       },
     });
 
-    if (searchRequest.name){
+    if (searchRequest.name) {
       matchQuery.push({
         match: {
           "bpp_details.name": searchRequest.name,
@@ -2139,7 +2256,7 @@ class SearchService {
       });
     }
 
-    if (searchRequest.bppId){
+    if (searchRequest.bppId) {
       matchQuery.push({
         match: {
           "bpp_details.bpp_id": searchRequest.bppId,
@@ -2149,7 +2266,11 @@ class SearchService {
 
     const sellerCount = await client.search({
       index: "items",
-      query: { bool: { must: matchQuery } },
+      query: {
+        bool: {
+          must: matchQuery
+        }
+      },
       size: 0,
       aggs: {
         seller_count: {
@@ -2160,13 +2281,17 @@ class SearchService {
       },
     });
 
-    if (sellerCount.aggregations.seller_count.value === 0){
+    if (sellerCount.aggregations.seller_count.value === 0) {
       return [];
     }
 
     const allSellers = await client.search({
       size: 0,
-      query:  { bool: { must: matchQuery } },
+      query: {
+        bool: {
+          must: matchQuery
+        }
+      },
       aggs: {
         unique_sellers: {
           terms: {
@@ -2184,6 +2309,9 @@ class SearchService {
         },
       },
     });
+
+
+    ProviderTagMapping
     const sellers = allSellers.aggregations.unique_sellers.buckets.map(
       (seller) => {
         return {
@@ -2240,22 +2368,25 @@ class SearchService {
     });
 
     console.log("CATEGORIES", totalCategories);
-  
+
     const domainBuckets = totalCategories.aggregations.domainCategories.buckets;
 
     console.log("DOMAIN BUCKETS", totalCategories.aggregations.domainCategories.buckets);
 
     let result = {};
-  
+
     domainBuckets.forEach(domainBucket => {
       const domainName = domainBucket.key;
       const uniqueCategories = domainBucket.uniqueCategories.buckets.map(category => {
-        return { code: category.key, label: category.key };
+        return {
+          code: category.key,
+          label: category.key
+        };
       });
-  
+
       result[domainName] = uniqueCategories;
     });
-  
+
     return result;
   }
 
@@ -2276,7 +2407,7 @@ class SearchService {
           language: targetLanguage,
         },
       });
-      
+
       // Construct the base query object
       const baseQuery = {
         bool: {
@@ -2288,7 +2419,7 @@ class SearchService {
       const providerCount = await client.search({
         index: "items",
         size: 0,
-        query: baseQuery ,   
+        query: baseQuery,
         aggs: {
           provider_count: {
             cardinality: {
@@ -2299,20 +2430,24 @@ class SearchService {
       });
 
       if (providerCount.aggregations.provider_count.value === 0)
-        return 
+        return
 
 
       const uniqueProviders = await client.search({
         index: "items",
-        query:baseQuery,
-        size: 0,        
+        query: baseQuery,
+        size: 0,
         aggs: {
           unique: {
             composite: {
               size: providerCount.aggregations.provider_count.value,
-              sources: [
-                { provider_id: { terms: { field: "provider_details.id" } } },
-              ],
+              sources: [{
+                provider_id: {
+                  terms: {
+                    field: "provider_details.id"
+                  }
+                }
+              }, ],
             },
             aggs: {
               top_provider_hits: {
@@ -2332,7 +2467,7 @@ class SearchService {
 
 
 
-      
+
       const providers = uniqueProviders.aggregations.unique.buckets.map(
         (bucket) => {
           const topHit = bucket.top_provider_hits.hits.hits[0]._source;
@@ -2404,9 +2539,13 @@ class SearchService {
             unique: {
               composite: {
                 size: locationCount.aggregations.location_count.value,
-                sources: [
-                  { location_id: { terms: { field: "location_details.id" } } },
-                ],
+                sources: [{
+                  location_id: {
+                    terms: {
+                      field: "location_details.id"
+                    }
+                  }
+                }, ],
               },
               aggs: {
                 top_location_hits: {
