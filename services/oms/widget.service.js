@@ -38,7 +38,7 @@ class WidgetService {
                     validTo: widgetDetails.validTo,
                     image: widgetDetails.image,
                     domain: widgetDetails.domain,
-                    TagId: widgetDetails.TagId
+                    TagId: widgetDetails.TagId,
                 };
 
                 // Save the widget

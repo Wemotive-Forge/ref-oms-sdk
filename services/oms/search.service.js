@@ -1,5 +1,6 @@
 import _ from "lodash";
 import client from "../../database/elasticSearch.js";
+import {ProviderTagMapping} from "../../models"
 import MappedCity from "../../utils/mappedCityCode.js";
 
 class SearchService {
@@ -1601,15 +1602,29 @@ class SearchService {
 
       const response = [];
 
-      locationProviderFlags.aggregations.unique_providers_location.buckets.forEach(bucket => {
-          bucket["locations"].buckets.forEach((locationBucket)=>{
-          
+      for (const bucket of locationProviderFlags.aggregations.unique_providers_location.buckets){
+        for(const locationBucket of bucket["locations"].buckets){
+
           const topHit = locationBucket.top_hits.hits.hits[0]._source;
-          response.push ({
+          let  taggedProvider;
+          if (searchRequest.tagged){
+            taggedProvider = await ProviderTagMapping.findOne({
+              where: {
+                providerId: topHit.provider_details.id
+              }
+            });
+            taggedProvider = taggedProvider ? true : false;
+          }
+
+          
+
+          
+
+          response.push({
             provider_details: topHit.provider_details,
             name: topHit.provider_details.descriptor.name, // BPP ID as name
             city: topHit.context.city,
-            seller_name:topHit.bpp_details?.name??"",
+            seller_name: topHit.bpp_details?.name ?? "",
             seller_app: topHit.context.bpp_id, // Seller app
             item_count: locationBucket.doc_count, // Number of items
             flagged_item_count: locationBucket.flagged_count.doc_count,
@@ -1617,35 +1632,37 @@ class SearchService {
             location_details: topHit.location_details,
             location: topHit.location_details.address.locality,
             flag: topHit.provider_flag || false,
-            manual_flag : topHit.manual_provider_flag || false,
-            auto_flag : topHit.auto_provider_flag || false,
+            manual_flag: topHit.manual_provider_flag || false,
+            auto_flag: topHit.auto_provider_flag || false,
             context: topHit.context,
-            bpp_details: topHit.bpp_details
+            bpp_details: topHit.bpp_details,
+            tagged: taggedProvider
           })
 
-          if (bucket["products_without_locations_id"].doc_count > 0){
+          if (bucket["products_without_locations_id"].doc_count > 0) {
             const topHit = bucket.products_without_locations_id.top_hits.hits.hits[0]._source;
-            response.push ({
+            response.push({
               provider_details: topHit.provider_details,
               name: topHit.provider_details.descriptor.name, // BPP ID as name
               city: topHit.context.city,
-              seller_name:topHit.bpp_details?.name??"",
+              seller_name: topHit.bpp_details?.name ?? "",
               seller_app: topHit.context.bpp_id, // Seller app
               item_count: bucket.products_without_locations_id.doc_count, // Number of items
-              flagged_item_count: bucket.products_without_locations_id.flagged_count.doc_count ,
+              flagged_item_count: bucket.products_without_locations_id.flagged_count.doc_count,
               location_id: "N/A",
               location_details: "N/A",
               location: "N/A",
               flag: topHit.provider_flag || false,
-              auto_flag : topHit.auto_provider_flag || false,
-              manual_flag : topHit.manual_provider_flag || false,
+              auto_flag: topHit.auto_provider_flag || false,
+              manual_flag: topHit.manual_provider_flag || false,
               context: topHit.context,
-              bpp_details: topHit.bpp_details
+              bpp_details: topHit.bpp_details,
+              tagged: taggedProvider
             })
           }
-         
-        })
-      });
+
+        };
+      };
 
 
       return {
@@ -2147,6 +2164,9 @@ class SearchService {
       });
     }
 
+    // await ProviderTagMapping.find({providerId:searchRequest.tagId})
+
+
     const sellerCount = await client.search({
       index: "items",
       query: { bool: { must: matchQuery } },
@@ -2177,7 +2197,7 @@ class SearchService {
             products: {
               top_hits: {
                 size: 1,
-                _source: ["bpp_details.bpp_id", "bpp_details.name"],
+                _source: ["bpp_details.bpp_id", "bpp_details.name","provider_search_tags"],
               },
             },
           },
@@ -2189,6 +2209,7 @@ class SearchService {
         return {
           id: seller.key,
           label: seller.products.hits.hits[0]._source.bpp_details.name,
+          provider_search_tags:seller.products.hits.hits[0].source?.provider_search_tags,
         };
       }
     );
