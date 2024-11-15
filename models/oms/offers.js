@@ -47,7 +47,7 @@ module.exports = (sequelize, DataTypes) => {
   totalQty: {
     type: DataTypes.INTEGER,
   },
-  availableQty: {
+  initialQty: {
     type : DataTypes.INTEGER,
   },
   createdBy: {
