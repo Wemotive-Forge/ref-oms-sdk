@@ -149,7 +149,10 @@ class SearchService {
       },
     };
 
-    
+    // Determine sort field and order
+    let sortField = searchRequest.sortField || "seller_flag"
+    let sortOrder = searchRequest.sortOrder || "asc"
+
     const allSellers = await client.search({
       index: "items",
       query: query_obj,
@@ -163,13 +166,20 @@ class SearchService {
         unique: {
           composite: {
             after: afterKey,
-            sources: {
-              "context.bpp_id": {
-                terms: {
-                  field: "context.bpp_id",
+            sources: [
+              {
+                [sortField]: {
+                  terms: { field: sortField, order: sortOrder, missing_bucket: true },
                 },
               },
-            },
+              {
+                "context.bpp_id": {
+                  terms: {
+                    field: "context.bpp_id",
+                  },
+                },
+              },
+            ],
             size: searchRequest.limit,
           },
           aggs: {
@@ -245,7 +255,7 @@ class SearchService {
         flagged_items_count: group[0].item_flagged_count.doc_count,
         flagged_providers_count: group[0].provider_flagged_count.doc_count,
         flag: group[0].seller_flag_count.doc_count > 0,
-        manual_flag: group[0].manual_seller_flag_count.doc_count > 0,
+        manual_flag: group[0].manual_seller_flag_count.doc_count  > 0,
         auto_flag: group[0].auto_seller_flag_count.doc_count > 0,
       };
     });
@@ -1534,10 +1544,10 @@ class SearchService {
       }
 
       // Add flag filter
-      if (searchRequest.flag) {
+      if (searchRequest.flagged) {
         matchQuery.push({
           match: {
-            provider_flag: searchRequest.flag,
+            provider_flag: searchRequest.flagged,
           },
         });
       }
@@ -1558,6 +1568,11 @@ class SearchService {
         index: "items",
         size:0,
         query: query_obj,
+        sort: [{
+          provider_flag: {
+            order: "asc"
+          }
+        }],
         aggs: {
           total_providers: {
             cardinality: {
@@ -1959,16 +1974,6 @@ class SearchService {
         });
       }
 
-      
-
-      if (searchRequest.bpp_id) {
-        matchQuery.push({
-          match: {
-            "context.bpp_id": searchRequest.bpp_id,
-          },
-        });
-      }
-
       // Add flag filter
       if (searchRequest.flagged) {
         matchQuery.push({
@@ -1980,55 +1985,70 @@ class SearchService {
 
       if (searchRequest.type) {
         matchQuery.push({
-          match: {
-            type: searchRequest.type,
+          bool: {
+            must: [
+              {
+                // Match the 'type' field with the value provided in the search request
+                match: {
+                  "type": searchRequest.type,
+                },
+              },
+              {
+                // Ensure that the 'type' field specifically matches 'item'
+                term: {
+                  "type": "item",
+                },
+              },
+            ],
+          },
+        });
+      }      
+
+      // Add variant filter
+      if (searchRequest.variant) {
+        matchQuery.push({
+          bool: {
+            must: [
+              {
+                // Check if the 'item_details.parent_item_id' field exists in the document
+                exists: {
+                  field: "item_details.parent_item_id",
+                },
+              },
+              {
+                // Match the 'item_details.parent_item_id' field with the value provided in the search request
+                match: {
+                  "item_details.parent_item_id": searchRequest.variant,
+                },
+              },
+            ],
           },
         });
       }
+
       // Add customisation filter
-      if (searchRequest.customisation !== undefined) {
-        if (searchRequest.customisation === "false") {
-          // If customisation is set to "false", we want to include items where:
-          matchQuery.push({
-            bool: {
-              should: [
-                // 1. "item_details.tags.code" does not exist
+      if (searchRequest.customisation) {
+        const isCustomisation = JSON.parse(searchRequest.customisation);
+        matchQuery.push({
+          bool: {
+            must: isCustomisation
+              ? [
                 {
-                  bool: {
-                    must_not: {
-                      exists: {
-                        field: "item_details.tags.code",
-                      },
-                    },
+                  term: {
+                    "item_details.tags.code": "custom_group",
                   },
                 },
-                // 2. "item_details.tags.code" is not "custom_group"
+              ]
+              : [],
+            must_not: isCustomisation
+              ? []
+              : [
                 {
-                  bool: {
-                    must_not: {
-                      term: {
-                        "item_details.tags.code": "custom_group",
-                      },
-                    },
+                  term: {
+                    "item_details.tags.code": "custom_group",
                   },
                 },
               ],
-            },
-          });
-        } else {
-          // Otherwise, include items where "item_details.tags.code" is "custom_group"
-          matchQuery.push({
-            match: {
-              "item_details.tags.code": "custom_group",
-            },
-          });
-        }
-      }
-      // Add variant filter
-      if (searchRequest.variant !== undefined) {
-        matchQuery.push({
-          exists: {
-            field: "item_details.parent_item_id",
           },
         });
       }
@@ -2044,6 +2064,23 @@ class SearchService {
       let page = parseInt(searchRequest.pageNumber);
       const from = (page - 1) * size;
 
+      // Determine sort field and order
+      let sortField = searchRequest.sortField || "item_flag";
+      let sortOrder = searchRequest.sortOrder || "asc";
+
+      // Ensure the sort field is valid
+      if (!["item_flag", "auto_item_flag", "manual_item_flag"].includes(sortField)) {
+        sortField = "item_flag";
+      }
+
+      let sort = [
+        {
+          [sortField]: {
+            order: sortOrder,
+          },
+        },
+      ];
+
       // Elasticsearch query with aggregation
       let queryResults = await client.search({
         index: "items",
@@ -2051,6 +2088,7 @@ class SearchService {
           query: query_obj,
           from: from,
           size: size,
+          sort: sort,
           _source: [
             "item_details",
             "id",
@@ -2071,6 +2109,7 @@ class SearchService {
             "manual_item_flag"
           ],
         },
+        track_total_hits: true
       });
 
       // Extract data from Elasticsearch response
