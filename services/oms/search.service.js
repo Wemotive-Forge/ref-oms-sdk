@@ -2448,6 +2448,49 @@ class SearchService {
       throw err;
     }
   }
-}
+
+  async getUniqueCodes(targetLanguage = "en") {
+    let matchQuery = [];
+  
+    matchQuery.push({
+      match: {
+        language: targetLanguage,
+      },
+    });
+  
+    let query_obj = {
+      bool: {
+        must: matchQuery,
+      },
+    };
+  
+    const response = await client.search({
+      index: "items",
+      size: 0,
+      query: query_obj,
+      aggs: {
+        filteredTags: {
+          filter: {
+            term: { "item_details.tags.code": "attribute" }
+          },
+          aggs: {
+            uniqueAttributeCodes: {
+              terms: {
+                field: "item_details.tags.list.code", // Field path for the aggregation
+                size: 1000
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // Extract unique codes from aggregation results
+    const buckets = response.aggregations.filteredTags.uniqueAttributeCodes.buckets;
+    const uniqueCodesArray = buckets.map(bucket => bucket.key);
+
+    return uniqueCodesArray;
+  }
+}  
 
 export default SearchService;
