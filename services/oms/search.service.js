@@ -250,6 +250,17 @@ class SearchService {
       };
     });
 
+    // Sort the results based on the sortBy and sortOrder parameters
+    if (searchRequest.sortBy && searchRequest.sortBy === 'name') {
+      result.sort((a, b) => {
+        let nameA = a.seller_name.toUpperCase();
+        let nameB = b.seller_name.toUpperCase();
+        if (searchRequest.sortOrder && searchRequest.sortOrder.toLowerCase() === 'desc') {
+          return nameB.localeCompare(nameA);
+        }
+        return nameA.localeCompare(nameB);
+      });
+    }
     return {
       sellers: result,
       count: allSellers.aggregations.seller_count.value,
@@ -2103,6 +2114,78 @@ class SearchService {
           manual_flag: hit._source.manual_item_flag || false,
         };
       });
+
+      // Function to handle sorting with dynamic sortBy and sortOrder
+      const sortItems = (items, sortBy, sortOrder) => {
+        // Determine the sorting order: -1 for descending, 1 for ascending
+        const order = sortOrder && sortOrder.toLowerCase() === 'desc' ? -1 : 1;
+
+        items.sort((a, b) => {
+          let comparison = 0;
+
+          // Function to get the field value for sorting
+          const getField = (item, field) => {
+            switch (field) {
+              case 'name':
+                // Get the item name in uppercase for case-insensitive comparison
+                return item.item_details.descriptor.name ? item.item_details.descriptor.name.toUpperCase() : "";
+              case 'provider':
+                // Get the provider name in uppercase for case-insensitive comparison
+                return item.provider_name ? item.provider_name.toUpperCase() : "";
+              case 'seller':
+                // Get the seller name in uppercase for case-insensitive comparison
+                return item.seller_name ? item.seller_name.toUpperCase() : "";
+              case 'category':
+                // Get the category ID in uppercase for case-insensitive comparison
+                return item.item_details.category_id ? item.item_details.category_id.toUpperCase() : "";
+              default:
+                // Return empty string if the field is not recognized
+                return "";
+            }
+          };
+
+          if (sortBy) {
+            // Sort by the specified field
+            const fieldA = getField(a, sortBy);
+            const fieldB = getField(b, sortBy);
+            comparison = fieldA.localeCompare(fieldB) * order; // Compare values and apply order
+          } else {
+            // Default sorting if no sortBy is specified
+            // Sort by multiple fields in the following priority order:
+
+            // Compare item name
+            let nameA = a.item_details.descriptor.name ? a.item_details.descriptor.name.toUpperCase() : "";
+            let nameB = b.item_details.descriptor.name ? b.item_details.descriptor.name.toUpperCase() : "";
+            comparison = nameA.localeCompare(nameB);
+            if (comparison !== 0) return comparison * order; // Return comparison if names are different
+
+            // Compare provider name
+            let providerA = a.provider_name ? a.provider_name.toUpperCase() : "";
+            let providerB = b.provider_name ? b.provider_name.toUpperCase() : "";
+            comparison = providerA.localeCompare(providerB);
+            if (comparison !== 0) return comparison * order; // Return comparison if provider names are different
+
+            // Compare seller name
+            let sellerA = a.seller_name ? a.seller_name.toUpperCase() : "";
+            let sellerB = b.seller_name ? b.seller_name.toUpperCase() : "";
+            comparison = sellerA.localeCompare(sellerB);
+            if (comparison !== 0) return comparison * order; // Return comparison if seller names are different
+
+            // Compare category ID
+            let categoryA = a.category_id ? a.category_id.toUpperCase() : "";
+            let categoryB = b.category_id ? b.category_id.toUpperCase() : "";
+            return categoryA.localeCompare(categoryB) * order; // Return comparison for categories
+          }
+
+          return comparison; // Return final comparison result
+        });
+      };
+
+      // Example usage of the sortItems function
+      const sortBy = searchRequest.sortBy; // e.g., 'name', 'provider', 'seller', 'category'
+      const sortOrder = searchRequest.sortOrder; // e.g., 'asc' or 'desc'
+
+      sortItems(items, sortBy, sortOrder); // Call the function to sort items
 
       // Get the total count of results
       let totalCount = queryResults.hits.total.value;
